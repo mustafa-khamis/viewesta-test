@@ -27,9 +27,14 @@ const Profile = () => {
   const { watchlist, getMovieById } = useMovies();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
+
+  // backend style split fields
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
   const [editEmail, setEditEmail] = useState('');
-  const [editBio, setEditBio] = useState('');
+
+  // const [editBio, setEditBio] = useState(''); // BIO DISABLED (backend doesn't support it)
+
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [avatarPreview, setAvatarPreview] = useState('');
   const [qualityPref, setQualityPref] = useState('');
@@ -45,16 +50,19 @@ const Profile = () => {
 
   const avatarSrc =
     user?.avatar ||
-    `${DEFAULT_AVATAR}${encodeURIComponent(user?.name || 'U')}`;
+    `${DEFAULT_AVATAR}${encodeURIComponent(user?.first_name || 'U')}`;
 
   const handleEditStart = () => {
-    setEditName(user.name || '');
-    setEditEmail(user.email || '');
-    setEditBio(user.bio || '');
-    setEditAvatarUrl(user.avatar || '');
-    setAvatarPreview(user.avatar || '');
-    setQualityPref(user.preferences?.quality || '1080p');
-    setNotifPref(user.preferences?.notifications ?? true);
+    setEditFirstName(user?.first_name || '');
+    setEditLastName(user?.last_name || '');
+    setEditEmail(user?.email || '');
+
+    // setEditBio(user?.bio || ''); // BIO DISABLED
+
+    setEditAvatarUrl(user?.avatar || '');
+    setAvatarPreview(user?.avatar || '');
+    setQualityPref(user?.preferences?.quality || '1080p');
+    setNotifPref(user?.preferences?.notifications ?? true);
     setSaveSuccess(false);
     setSaveError('');
     setIsEditing(true);
@@ -82,16 +90,19 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!editName.trim()) {
-      setSaveError('Name cannot be empty.');
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      setSaveError('First name and last name cannot be empty.');
       return;
     }
     setSaving(true);
     setSaveError('');
     const updates = {
-      name: editName.trim(),
+      first_name: editFirstName.trim(),
+      last_name: editLastName.trim(),
       email: editEmail.trim(),
-      bio: editBio.trim(),
+
+      // bio: editBio.trim(), // BIO DISABLED
+
       avatar: editAvatarUrl || avatarSrc,
       preferences: { quality: qualityPref, notifications: notifPref },
     };
@@ -133,16 +144,30 @@ const Profile = () => {
           <div className="profile-avatar-wrap">
             <img
               src={isEditing ? (avatarPreview || avatarSrc) : avatarSrc}
-              alt={user.name}
+              alt={user.first_name}
               className="profile-avatar-img"
-              onError={(e) => { e.target.src = `${DEFAULT_AVATAR}${encodeURIComponent(user.name || 'U')}`; }}
+              onError={(e) => {
+                e.target.src =
+                  `${DEFAULT_AVATAR}${encodeURIComponent(user.first_name || 'U')}`;
+              }}
             />
             {isEditing && (
-              <button className="avatar-camera-btn" onClick={() => fileRef.current?.click()} title="Upload photo">
+              <button
+                className="avatar-camera-btn"
+                onClick={() => fileRef.current?.click()}
+                title="Upload photo"
+              >
                 <FaCamera />
               </button>
             )}
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
           </div>
 
           <div className="profile-info">
@@ -150,27 +175,35 @@ const Profile = () => {
               <div className="profile-edit-form">
                 <div className="edit-row">
                   <div className="edit-field">
-                    <label>Full Name</label>
+                    <label>First Name</label>
                     <input
                       className="profile-edit-input"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      placeholder="Your name"
+                      value={editFirstName}
+                      onChange={(e) => setEditFirstName(e.target.value)}
                     />
                   </div>
                   <div className="edit-field">
-                    <label>Email</label>
+                    <label>Last Name</label>
                     <input
                       className="profile-edit-input"
-                      type="email"
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      placeholder="your@email.com"
+                      value={editLastName}
+                      onChange={(e) => setEditLastName(e.target.value)}
                     />
                   </div>
                 </div>
+
                 <div className="edit-field">
-                  <label>Avatar URL (or upload above)</label>
+                  <label>Email</label>
+                  <input
+                    className="profile-edit-input"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                  />
+                </div>
+
+                <div className="edit-field">
+                  <label>Avatar URL</label>
                   <input
                     className="profile-edit-input"
                     value={editAvatarUrl}
@@ -178,6 +211,8 @@ const Profile = () => {
                     placeholder="https://..."
                   />
                 </div>
+
+                {/* BIO FIELD (DISABLED - BACKEND NOT SUPPORTED)
                 <div className="edit-field">
                   <label>Bio</label>
                   <textarea
@@ -188,32 +223,39 @@ const Profile = () => {
                     rows={2}
                   />
                 </div>
+                */}
                 {saveError && <p className="profile-save-error">{saveError}</p>}
                 <div className="edit-actions">
-                  <button className="btn btn-primary edit-save-btn" onClick={handleSave} disabled={saving}>
+                  <button
+                    className="btn btn-primary edit-save-btn"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
                     <FaSave /> {saving ? 'Saving…' : 'Save Changes'}
                   </button>
-                  <button className="btn btn-outline edit-cancel-btn" onClick={handleCancel}>
+
+                  <button
+                    className="btn btn-outline edit-cancel-btn"
+                    onClick={handleCancel}
+                  >
                     <FaTimes /> Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <>
-                <h1 className="profile-name">{user.name}</h1>
+                <h1 className="profile-name">
+                  {user.first_name} {user.last_name}
+                </h1>
+
                 <p className="profile-email">{user.email}</p>
-                {user.bio && <p className="profile-bio">{user.bio}</p>}
-                <div className="profile-meta-row">
-                  {user.role && (
-                    <span className="profile-role">{user.role === 'filmmaker' ? '🎬 Filmmaker' : '👤 Viewer'}</span>
-                  )}
-                  {user.createdAt && (
-                    <span className="profile-since">
-                      Member since {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                    </span>
-                  )}
-                </div>
-                <button className="btn btn-outline edit-profile-btn" onClick={handleEditStart}>
+
+                {/* <p className="profile-bio">{user.bio}</p> */}
+
+                <button
+                  className="btn btn-outline edit-profile-btn"
+                  onClick={handleEditStart}
+                >
                   <FaEdit /> Edit Profile
                 </button>
               </>

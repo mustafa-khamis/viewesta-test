@@ -190,7 +190,6 @@
   margin-top: 0.25rem;
   accent-color: var(--primary, #D06224);
 }
-
 .register-page .link {
   color: var(--primary, #D06224);
   text-decoration: none;
@@ -289,6 +288,11 @@
 
 .register-footer .link:hover {
   text-decoration: underline;
+}
+.name-input{
+  display: flex;
+  align-items: center;
+  gap: 1em;
 }
 
 @media (max-width: 900px) {

@@ -3,6 +3,9 @@
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authService from '../services/authService';
+import { registerUser } from '../utils/apiClient.js';
+import { loginUser } from '../utils/apiClient';
+import { getCurrentUser } from '../utils/apiClient.js';
 
 const AuthContext = createContext();
 const USER_KEY = 'viewesta_user';
@@ -29,7 +32,7 @@ export const AuthProvider = ({ children }) => {
     if (rawUser) {
       const u = {
         ...rawUser,
-        role: rawUser.role || rawUser.user_type || 'viewer',
+        role: rawUser.user_role || rawUser.role || rawUser.user_type || 'viewer',
         purchasedMovies: rawUser.purchasedMovies || [],
         watchHistory: rawUser.watchHistory || [],
         watchlist: rawUser.watchlist || [],
@@ -48,34 +51,90 @@ export const AuthProvider = ({ children }) => {
     return null;
   }, []);
 
-  useEffect(() => {
-    const saved = safeParse(localStorage.getItem(USER_KEY));
-    if (saved) setUser(saved);
-    setLoading(false);
-  }, []);
 
-  const login = async (email, password) => {
-    const result = await authService.login(email, password);
-    if (result.success && result.user) {
-      persistUser(result.user);
-      return { success: true, user: result.user };
-    }
-    return { success: false, error: result.error || 'Login failed' };
-  };
+// I changed this useEffect so it will check the auth status by calling the getCurrentUser endpoint
+// it run after login, register, and start of the app or refreshing the page 
 
-  const register = async (payload) => {
-    const result = await authService.register({
-      email: payload.email,
-      password: payload.password,
-      name: payload.name,
-      user_type: payload.user_type || payload.role || 'viewer',
-    });
-    if (result.success && result.user) {
-      persistUser(result.user);
-      return { success: true, user: result.user };
+ useEffect(() => {
+  const initAuth = async () => {
+    try {
+      const token = localStorage.getItem('viewesta_token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      const res = await getCurrentUser();
+      persistUser(res.data.user || res.data);
+    } catch (err) {
+      console.log('Auth check failed:', err.message);
+
+      localStorage.removeItem('viewesta_token');
+      localStorage.removeItem(USER_KEY);
+    } finally {
+      setLoading(false);
     }
-    return { success: false, error: result.error || 'Registration failed' };
   };
+  initAuth();
+}, []);
+
+
+// I edited the login function to use the apiclient insted of Mock loing of authService
+const login = async (email, password) => {
+  try {
+    const res = await loginUser({ email, password });
+
+    // the correct data based on the backend 
+    const user = res.data.data.user;
+    const token = res.data.data.token;
+
+    if (token) {
+      localStorage.setItem('viewesta_token', token);
+    }
+
+    persistUser(user);
+
+    return { success: true, user };
+
+  } catch (err) {
+    const safeMessage =
+      err.message?.toLowerCase().includes('password')
+        ? 'Invalid email or password'
+        : err.message?.toLowerCase().includes('email')
+        ? 'Invalid email'
+        : 'Something went wrong, please try again';
+
+    return {
+      success: false,
+      error: safeMessage,
+    };
+  }
+};
+
+  // I have eited the register function to use the apiClient registerUser function
+
+const register = async (data) => {
+  try {
+    const res = await registerUser(data);
+
+    // the correct data based on the backend response 
+    const user = res.data.data.user;
+    const token = res.data.data.token;
+
+    if (token) {
+      localStorage.setItem('viewesta_token', token);
+    }
+
+    persistUser(user);
+
+    return { success: true, user };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message,
+    };
+  }
+};
+
 
   const logout = () => {
     persistUser(null);

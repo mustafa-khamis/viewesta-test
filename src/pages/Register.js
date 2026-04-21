@@ -4,9 +4,11 @@ import { FaGoogle, FaFacebook, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import './Register.css';
 
+// here I added the firsname and lastname instead of name to be applicable with the backend 
 const Register = () => {
   const [formData, setFormData] = useState({
-    name: '',
+    firstname: '',
+    lastname: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -45,19 +47,25 @@ const Register = () => {
     }
 
     try {
+      // FIX: send correct backend payload
       const result = await register({
-        name: formData.name,
+        first_name: formData.firstname,
+  last_name: formData.lastname,
         email: formData.email,
         password: formData.password,
         user_type: formData.user_type || 'viewer',
       });
 
       if (result.success) {
-        const isFilmmaker = (result.user?.role || result.user?.user_type || '').toLowerCase() === 'filmmaker';
+        const isFilmmaker =
+          (result.user?.role || result.user?.user_type || '').toLowerCase() === 'filmmaker';
+
         navigate(isFilmmaker ? '/filmmaker-studio' : '/');
-      } else setError(result.error || 'Registration failed');
+      } else {
+        setError(result.error || 'Registration failed');
+      }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -69,11 +77,15 @@ const Register = () => {
     try {
       const result = await socialLogin(provider);
       if (result.success) {
-        const isFilmmaker = (result.user?.role || result.user?.user_type || '').toLowerCase() === 'filmmaker';
+        const isFilmmaker =
+          (result.user?.role || result.user?.user_type || '').toLowerCase() === 'filmmaker';
+
         navigate(isFilmmaker ? '/filmmaker-studio' : '/');
-      } else setError(result.error || 'Social login failed');
+      } else {
+        setError(result.error || 'Social login failed');
+      }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -101,17 +113,35 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="register-form">
             <div className="form-group">
-              <label htmlFor="name" className="form-label">Full name</label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="form-input"
-                placeholder="Your name"
-                required
-              />
+              <div className='name-input'>
+                <div>
+                  <label htmlFor='firstname' className='form-label'>First name</label>
+                  <input
+                    type="text"
+                    id="firstname"
+                    name="firstname"
+                    value={formData.firstname}
+                    onChange={handleChange}
+                    className="form-input"
+                    placeholder="Your first name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="lastname" className="form-label">Last name</label>
+                  <input
+                    type="text"
+                    id="lastname"
+                    name="lastname"
+                    value={formData.lastname}
+                    onChange={handleChange}
+                    className="form-input"
+                    placeholder="Your last name"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="form-group">
@@ -152,7 +182,10 @@ const Register = () => {
                   <span>Filmmaker</span>
                 </label>
               </div>
-              <p className="form-hint">Viewers watch and subscribe. Filmmakers upload and earn.</p>
+
+              <p className="form-hint">
+                Viewers watch and subscribe. Filmmakers upload and earn.
+              </p>
             </div>
 
             <div className="form-group">
@@ -218,14 +251,7 @@ const Register = () => {
               className="btn btn-primary btn-full"
               disabled={loading}
             >
-              {loading ? (
-                <>
-                  <span className="loading" aria-hidden />
-                  Creating account...
-                </>
-              ) : (
-                'Create account'
-              )}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 

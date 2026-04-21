@@ -37,7 +37,7 @@ const Login = () => {
         setError(result.error || 'Login failed');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ const Login = () => {
         navigate(isFilmmaker ? '/filmmaker-studio' : '/');
       } else setError(result.error || 'Social login failed');
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('Something went wrong');
     } finally {
       setLoading(false);
     }

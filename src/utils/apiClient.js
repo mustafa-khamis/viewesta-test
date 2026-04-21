@@ -2,14 +2,16 @@ import axios from 'axios';
 
 const defaultBaseUrl = 'http://localhost:3000/api/v1';
 
+
+const API_BASE = process.env.REACT_APP_API_BASE;
+const API_VERSION = process.env.REACT_APP_API_VERSION || 'v1';
+
 const normalizedBaseUrl = (() => {
-  const envUrl = process.env.REACT_APP_API_BASE;
-  if (!envUrl) return defaultBaseUrl;
+  if (!API_BASE) return defaultBaseUrl;
 
-  const trimmed = envUrl.trim();
-  if (!trimmed) return defaultBaseUrl;
+  const trimmed = API_BASE.trim().replace(/\/$/, '');
 
-  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+  return `${trimmed}/api/${API_VERSION}`;
 })();
 
 export const API_BASE_URL = normalizedBaseUrl;
@@ -19,17 +21,76 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 15000, // to prevent hanging requests
 });
 
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('viewesta_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// I add this interceptor to automaticly attach the token to every request if it exists
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('viewesta_token');
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
+
+ //Response interceptor → unified error handling
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const customError = {
+      message:
+        error?.response?.data?.message ||
+        error.message ||
+        'Something went wrong',
+      status: error?.response?.status,
+      data: error?.response?.data,
+    };
+
+    // optional: auto logout on 401
+    if (customError.status === 401) {
+      localStorage.removeItem('viewesta_token');
+      localStorage.removeItem('viewesta_user');
+    }
+
+    return Promise.reject(customError);
+  }
+);
+
+/**
+ * Health check endpoint
+ */
 export const healthCheck = () => apiClient.get('/health');
 
-export default apiClient;
+/**
+ * Generic helpers (optional but very useful)
+ */
+export const get = (url, config = {}) => apiClient.get(url, config);
 
+export const post = (url, data = {}, config = {}) =>
+  apiClient.post(url, data, config);
+
+export const put = (url, data = {}, config = {}) =>
+  apiClient.put(url, data, config);
+
+export const del = (url, config = {}) =>
+  apiClient.delete(url, config);
+
+export const registerUser = (data) =>
+  post('/auth/register', data);
+
+export const loginUser = (data) =>
+  post('/auth/login', data);
+
+export const getCurrentUser = () =>
+  get('/auth/me');
+
+export default apiClient;
