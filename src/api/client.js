@@ -1,11 +1,13 @@
 /**
  * Central HTTP client: base URL, auth header, refresh on 401.
- * TODO: Point baseURL to env and wire refresh + retry.
+ * Uses REACT_APP_API_BASE and REACT_APP_API_VERSION from .env
  */
 
 import axios from 'axios';
 
-const baseURL = process.env.REACT_APP_API_BASE_URL || 'https://api.viewesta.com/v1';
+const apiBase = process.env.REACT_APP_API_BASE ;
+const apiVersion = process.env.REACT_APP_API_VERSION || 'v1';
+const baseURL = `${apiBase}/api/${apiVersion}`;
 
 const client = axios.create({
   baseURL,

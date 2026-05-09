@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FaFilm, FaUsers, FaEye, FaCheck, FaArrowLeft, FaArrowRight,
@@ -6,8 +6,13 @@ import {
   FaFileUpload, FaUserShield, FaCloudUploadAlt,
 } from 'react-icons/fa';
 import { MEDIA_TYPES, SHORT_FILM_THRESHOLD_MINUTES } from '../../types';
-import { submitForReview } from '../../services/approvalService';
+import { useLocale } from '../../context/LocaleContext';
+import client from '../../api/client';
 import { validateUploadForm, validateImageAspectRatio, VALIDATION_RULES } from '../../utils/uploadValidation';
+import { submitForReview } from '../../services/approvalService';
+import uploadService from '../../services/uploadService';
+import { createMovie, addMovieVideoFile } from '../../services/movieService';
+import { createShow } from '../../services/seriesService';
 import MediaUploadZone from '../../components/MediaUploadZone';
 import EpisodeBuilder from '../../components/EpisodeBuilder';
 import AgeRatingBadge from '../../components/AgeRatingBadge';
@@ -19,12 +24,12 @@ const GENRES = [
 ];
 
 const AGE_RATINGS = {
-  'G':    { description: 'General audiences — all ages admitted.' },
-  'PG':   { description: 'Parental guidance suggested — some material may not suit children.' },
-  'PG-13':{ description: 'Parents strongly cautioned — some material may be inappropriate for children under 13.' },
-  'R':    { description: 'Restricted — under 17 requires accompanying parent or guardian.' },
+  'G':    { description: 'General audiences â€” all ages admitted.' },
+  'PG':   { description: 'Parental guidance suggested â€” some material may not suit children.' },
+  'PG-13':{ description: 'Parents strongly cautioned â€” some material may be inappropriate for children under 13.' },
+  'R':    { description: 'Restricted â€” under 17 requires accompanying parent or guardian.' },
   '16+':  { description: 'Suitable for viewers aged 16 and above.' },
-  '18+':  { description: 'Adults only — not suitable for viewers under 18.' },
+  '18+':  { description: 'Adults only â€” not suitable for viewers under 18.' },
 };
 
 const ROLE_OPTIONS = [
@@ -54,7 +59,7 @@ const initialForm = {
   mode: MODES.DIRECT,
   mediaType: MEDIA_TYPES.MOVIE,
   title: '', description: '', director: '', producer: '',
-  year: new Date().getFullYear(), duration: '',
+  releaseDate: '', duration: '', language: '', country: '',
   age_rating: '', genres: [],
   poster_url: '', poster_file: null,
   cover_url: '', cover_file: null,
@@ -62,6 +67,8 @@ const initialForm = {
   video_url: '', video_file: null,
   seasons: [],
   cast_crew: [],
+  production_company: '',
+  budget: '',
 };
 
 const FilmmakerUpload = () => {
@@ -73,6 +80,28 @@ const FilmmakerUpload = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories from backend to ensure valid UUIDs are used
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await client.get('/categories');
+        if (response.data?.success && response.data?.data) {
+          // Response structure is often { success: true, data: { categories: [...] } }
+          const fetchedCats = response.data.data.categories || response.data.data;
+          if (Array.isArray(fetchedCats)) {
+            setCategories(fetchedCats);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  const { t } = useLocale();
 
   const setField = useCallback((key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -153,7 +182,7 @@ const FilmmakerUpload = () => {
     // Step 4: Review (was 3)
 
     if (formStep === 0) {
-      const keys = ['title', 'description', 'director', 'year', 'mediaType'];
+      const keys = ['title', 'description', 'director', 'releaseDate', 'language', 'country', 'mediaType'];
       if (form.mediaType !== MEDIA_TYPES.SERIES) keys.push('duration');
       // Validate specifically these
       const result = validateUploadForm(form, form.mediaType);
@@ -199,40 +228,163 @@ const FilmmakerUpload = () => {
   const handleSubmit = async () => {
     // Final check
     const result = validateUploadForm(form, form.mediaType);
-    if (!result.isValid && form.mode === MODES.DIRECT) {
-      // Allow if admin request and missing video? We handled media step logic above.
-      // Ideally re-run full validation with context.
-    }
 
     setSubmitting(true);
     setSubmitError('');
     setUploadProgress(0);
 
-    // Simulate progress
-    const interval = setInterval(() => {
-      setUploadProgress(p => {
-        if (p >= 95) {
-          clearInterval(interval);
-          return 95;
-        }
-        return p + 5;
-      });
-    }, 200);
-
     try {
-      // Simulate network delay for 5GB file ;)
-      await new Promise(r => setTimeout(r, 2500)); 
-      clearInterval(interval);
-      setUploadProgress(100);
+      const isDirect = form.mode === MODES.DIRECT;
+
+      // Ensure required files are present
+      if (!form.poster_file || !form.cover_file || (isDirect && !form.trailer_file)) {
+        throw new Error('Please select all required media files before submitting.');
+      }
+
+      // Step 1: Upload assets sequentially using uploadService
+      let totalFiles = isDirect ? 3 : 2;
+      let uploadedFiles = 0;
+      if (form.mediaType !== MEDIA_TYPES.SERIES && isDirect && form.video_file) {
+         totalFiles++;
+      }
+
+      const updateGlobalProgress = (fileProgress) => {
+        // Average progress across all files
+        const overall = ((uploadedFiles * 100) + fileProgress) / totalFiles;
+        setUploadProgress(Math.min(overall, 99));
+      };
+
+      const uploadAsset = async (file, assetType) => {
+        if (!file) return null;
+        const res = await uploadService.uploadFileFlow(file, assetType, (p) => updateGlobalProgress(p));
+        uploadedFiles++;
+        return res;
+      };
+
+      const posterData = await uploadAsset(form.poster_file, 'poster');
+      const coverData = await uploadAsset(form.cover_file, 'backdrop');
+      let trailerData = null;
+      let videoData = null;
+
+      if (isDirect) {
+        trailerData = await uploadAsset(form.trailer_file, 'trailer');
+        if (form.mediaType !== MEDIA_TYPES.SERIES && form.video_file) {
+          videoData = await uploadAsset(form.video_file, 'video');
+        }
+      }
+
+      // Format Cast — cast[0].name and cast[0].role are REQUIRED by the backend.
+      // If the user added no cast members we inject a fallback so the request isn't rejected.
+      const rawCast = form.cast_crew.filter(c => c.name).map(c => ({
+        name: c.name,
+        role: c.role,
+        character: c.character || '',
+        image: c.photo || ''
+      }));
+      const castPayload = rawCast.length > 0
+        ? rawCast
+        : [{ name: form.director || 'Unknown', role: 'Director' }];
+
+      // Set progress to 99% before final API call
+      setUploadProgress(99);
+
+      if (form.mediaType === MEDIA_TYPES.SERIES) {
+         // Only include category_id when we have a real UUID from the backend.
+         // A fake placeholder UUID causes 400.
+         const seriesCategoryId = categories.find(c => c.name === form.genres[0])?.id || null;
+
+         const payload = {
+           content_type: 'series',
+           title: form.title,
+           description: form.description || '',
+           age_rating: form.age_rating || 'PG-13',
+           director_name: form.director || '',
+           producer_name: form.producer || '',
+           cast: castPayload,
+           poster_url: posterData?.file_url || form.poster_url || '',
+           backdrop_url: coverData?.file_url || form.cover_url || '',
+           thumbnail_url: coverData?.file_url || form.cover_url || '',
+           duration_minutes: 45,
+           release_year: form.releaseDate ? parseInt(form.releaseDate.split('-')[0]) : new Date().getFullYear(),
+         };
+         if (seriesCategoryId) payload.category_id = seriesCategoryId;
+
+         if (trailerData) {
+           payload.trailer_url = trailerData.file_url;
+           payload.trailer_video = {
+             file_url: trailerData.file_url,
+             file_size: trailerData.file_size,
+             duration_seconds: 120,
+             s3_key: trailerData.s3_key,
+             is_processed: false,
+           };
+         }
+
+         await createShow(payload);
+      } else {
+         // Build release_date: form gives "YYYY-MM" from <input type="month">
+         const releaseDate = form.releaseDate
+           ? `${form.releaseDate}-01`
+           : new Date().toISOString().split('T')[0];
+
+         // Only include category_id when we have a real UUID from the backend.
+         const resolvedCategoryId = categories.find(c => c.name === form.genres[0])?.id || null;
+
+         const payload = {
+           content_type: form.mediaType === MEDIA_TYPES.SHORT_FILM ? 'short' : 'movie',
+           title: form.title,
+           description: form.description || '',
+           synopsis: form.description || '',
+           age_rating: form.age_rating || 'PG-13',
+           director_name: form.director || '',
+           producer_name: form.producer || '',
+           cast: castPayload,
+           poster_url: posterData?.file_url || form.poster_url || '',
+           backdrop_url: coverData?.file_url || form.cover_url || '',
+           release_date: releaseDate,
+           duration_minutes: parseInt(form.duration) || 120,
+           language: form.language || 'English',
+           country: form.country || '',
+         };
+
+         // Conditionally add optional fields only if valid
+         if (resolvedCategoryId) payload.category_id = resolvedCategoryId;
+
+         if (trailerData) {
+           payload.trailer_url = trailerData.file_url;
+           payload.trailer_video = {
+             file_url: trailerData.file_url,
+             file_size: trailerData.file_size,
+             duration_seconds: 120,
+             s3_key: trailerData.s3_key,
+             is_processed: false,
+           };
+         }
+
+         console.log('[FilmmakerUpload] POST /movies payload:', JSON.stringify(payload, null, 2));
+
+         const createdMovie = await createMovie(payload);
+         const movieId = createdMovie?.data?.movie?.id || createdMovie?.data?.id;
+
+         // Attach full video file if one was uploaded
+         if (movieId && videoData) {
+           await addMovieVideoFile(movieId, {
+             quality: '1080p',
+             file_url: videoData.file_url,
+             file_size: videoData.file_size,
+             duration_seconds: parseInt(form.duration) * 60 || 7200,
+             s3_key: videoData.s3_key
+           });
+         }
+      }
       
-      const contentId = `content_${Date.now()}`;
-      await submitForReview(contentId); // Pass status override based on mode if needed
+      setUploadProgress(100);
       setSuccess(true);
     } catch (err) {
-      setSubmitError(err.message || 'Submission failed.');
+      console.error('Upload Error:', err);
+      setSubmitError(err.response?.data?.message || err.message || 'Submission failed.');
     } finally {
       setSubmitting(false);
-      clearInterval(interval);
     }
   };
 
@@ -298,7 +450,7 @@ const FilmmakerUpload = () => {
 
       <div className="fu-form">
 
-        {/* ── STEP 0: MODE SELECTION ────────────────────────────── */}
+        {/* â”€â”€ STEP 0: MODE SELECTION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 0 && (
           <div className="fu-step-content">
             <h2 className="fu-step-title">Select Upload Method</h2>
@@ -326,11 +478,11 @@ const FilmmakerUpload = () => {
           </div>
         )}
 
-        {/* ── STEP 1: INFO ───────────────────────────────────────── */}
+        {/* â”€â”€ STEP 1: INFO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 1 && (
           <div className="fu-step-content">
             <h2 className="fu-step-title">Content Information</h2>
-            <p className="fu-step-desc">Start with the basics — type, title, and key details.</p>
+            <p className="fu-step-desc">Start with the basics â€” type, title, and key details.</p>
 
             {/* Media Type */}
             <div className="fu-field">
@@ -343,7 +495,7 @@ const FilmmakerUpload = () => {
                     onClick={() => setField('mediaType', t)}
                   >
                     <span className="fu-media-type-icon">
-                      {t === MEDIA_TYPES.MOVIE ? '🎬' : t === MEDIA_TYPES.SHORT_FILM ? '⚡' : '📺'}
+                      {t === MEDIA_TYPES.MOVIE ? 'ðŸŽ¬' : t === MEDIA_TYPES.SHORT_FILM ? 'âš¡' : 'ðŸ“º'}
                     </span>
                     <span className="fu-media-type-label">
                       {t === MEDIA_TYPES.SHORT_FILM ? 'Short Film' : t}
@@ -401,22 +553,38 @@ const FilmmakerUpload = () => {
               </div>
             </div>
 
-            {/* Year + Duration */}
+            {/* Release Date + Duration */}
             <div className="fu-row">
-              <div className={`fu-field fu-field--narrow ${errors.year ? 'has-error' : ''}`}>
-                <label className="fu-label">Year <span className="fu-required">*</span></label>
-                <input className="fu-input" type="number" min="1900" max="2100"
-                  value={form.year} onChange={(e) => setField('year', e.target.value)} />
-                {errors.year && <p className="fu-error"><FaExclamationTriangle />{errors.year}</p>}
+              <div className={`fu-field fu-field--narrow ${errors.releaseDate ? 'has-error' : ''}`}>
+                <label className="fu-label">{t('releaseDate')} <span className="fu-required">*</span></label>
+                <input className="fu-input" type="month"
+                  value={form.releaseDate} onChange={(e) => setField('releaseDate', e.target.value)} />
+                {errors.releaseDate && <p className="fu-error"><FaExclamationTriangle />{errors.releaseDate}</p>}
               </div>
               {form.mediaType !== MEDIA_TYPES.SERIES && (
                 <div className={`fu-field fu-field--narrow ${errors.duration ? 'has-error' : ''}`}>
-                  <label className="fu-label">Duration (min) <span className="fu-required">*</span></label>
+                  <label className="fu-label">{t('durationMin')} <span className="fu-required">*</span></label>
                   <input className="fu-input" type="number" min="1" placeholder="e.g. 95"
                     value={form.duration} onChange={(e) => setField('duration', e.target.value)} />
                   {errors.duration && <p className="fu-error"><FaExclamationTriangle />{errors.duration}</p>}
                 </div>
               )}
+            </div>
+
+            {/* Language + Country */}
+            <div className="fu-row">
+              <div className={`fu-field fu-field--narrow ${errors.language ? 'has-error' : ''}`}>
+                <label className="fu-label">{t('language')} <span className="fu-required">*</span></label>
+                <input className="fu-input" type="text" placeholder="e.g. English, French"
+                  value={form.language} onChange={(e) => setField('language', e.target.value)} />
+                {errors.language && <p className="fu-error"><FaExclamationTriangle />{errors.language}</p>}
+              </div>
+              <div className={`fu-field fu-field--narrow ${errors.country ? 'has-error' : ''}`}>
+                <label className="fu-label">{t('country')} <span className="fu-required">*</span></label>
+                <input className="fu-input" type="text" placeholder="e.g. Nigeria"
+                  value={form.country} onChange={(e) => setField('country', e.target.value)} />
+                {errors.country && <p className="fu-error"><FaExclamationTriangle />{errors.country}</p>}
+              </div>
             </div>
 
             {warnings.length > 0 && (
@@ -472,7 +640,7 @@ const FilmmakerUpload = () => {
           </div>
         )}
 
-        {/* ── STEP 2: MEDIA ─────────────────────────────────────── */}
+        {/* â”€â”€ STEP 2: MEDIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 2 && (
           <div className="fu-step-content">
             <h2 className="fu-step-title">Media Files</h2>
@@ -480,7 +648,7 @@ const FilmmakerUpload = () => {
 
             <div className="fu-media-grid">
               <MediaUploadZone
-                label="Poster" required description="Vertical — 2:3 aspect ratio"
+                label="Poster" required description="Vertical â€” 2:3 aspect ratio"
                 accept="image/jpeg,image/png,image/webp" maxSizeMB={10} previewType="image"
                 name="poster" currentFile={form.poster_file} currentUrl={form.poster_url}
                 onFileChange={(f) => setField('poster_file', f)}
@@ -488,7 +656,7 @@ const FilmmakerUpload = () => {
                 error={errors.poster}
               />
               <MediaUploadZone
-                label="Cover Image" required description="Horizontal — 16:9 aspect ratio"
+                label="Cover Image" required description="Horizontal â€” 16:9 aspect ratio"
                 accept="image/jpeg,image/png,image/webp" maxSizeMB={15} previewType="image"
                 name="cover" currentFile={form.cover_file} currentUrl={form.cover_url}
                 onFileChange={(f) => setField('cover_file', f)}
@@ -524,7 +692,7 @@ const FilmmakerUpload = () => {
           </div>
         )}
 
-        {/* ── STEP 3: CAST ──────────────────────────────────────── */}
+        {/* â”€â”€ STEP 3: CAST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 3 && (
           <div className="fu-step-content">
             <h2 className="fu-step-title">Cast &amp; Crew</h2>
@@ -588,7 +756,7 @@ const FilmmakerUpload = () => {
           </div>
         )}
 
-        {/* ── STEP 4: REVIEW ────────────────────────────────────── */}
+        {/* â”€â”€ STEP 4: REVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         {step === 4 && (
           <div className="fu-step-content">
             <h2 className="fu-step-title">Review &amp; Submit</h2>
@@ -601,20 +769,20 @@ const FilmmakerUpload = () => {
               </div>
               <div className="fu-review-row">
                 <span className="fu-review-label">Title</span>
-                <span className="fu-review-value">{form.title || '—'}</span>
+                <span className="fu-review-value">{form.title || 'â€”'}</span>
               </div>
               <div className="fu-review-row">
                 <span className="fu-review-label">Director</span>
-                <span className="fu-review-value">{form.director || '—'}</span>
+                <span className="fu-review-value">{form.director || 'â€”'}</span>
               </div>
               <div className="fu-review-row">
                 <span className="fu-review-label">Year</span>
-                <span className="fu-review-value">{form.year || '—'}</span>
+                <span className="fu-review-value">{form.year || 'â€”'}</span>
               </div>
               {form.mediaType !== MEDIA_TYPES.SERIES && (
                 <div className="fu-review-row">
                   <span className="fu-review-label">Duration</span>
-                  <span className="fu-review-value">{form.duration ? `${form.duration} min` : '—'}</span>
+                  <span className="fu-review-value">{form.duration ? `${form.duration} min` : 'â€”'}</span>
                 </div>
               )}
               <div className="fu-review-row">
@@ -622,12 +790,12 @@ const FilmmakerUpload = () => {
                 <span className="fu-review-value">
                   {form.age_rating
                     ? <AgeRatingBadge rating={form.age_rating} size="sm" showTooltip={false} />
-                    : '—'}
+                    : 'â€”'}
                 </span>
               </div>
               <div className="fu-review-row">
                 <span className="fu-review-label">Genres</span>
-                <span className="fu-review-value">{form.genres.join(', ') || '—'}</span>
+                <span className="fu-review-value">{form.genres.join(', ') || 'â€”'}</span>
               </div>
               <div className="fu-review-row">
                 <span className="fu-review-label">Cast</span>
@@ -637,7 +805,7 @@ const FilmmakerUpload = () => {
               {castPreview && (
                 <div className="fu-review-row">
                   <span className="fu-review-label">People</span>
-                  <span className="fu-review-value">{castPreview}{form.cast_crew.length > 6 ? '…' : ''}</span>
+                  <span className="fu-review-value">{castPreview}{form.cast_crew.length > 6 ? 'â€¦' : ''}</span>
                 </div>
               )}
             </div>
@@ -706,7 +874,7 @@ const FilmmakerUpload = () => {
               disabled={submitting}
               style={{ marginLeft: 'auto' }}
             >
-              {submitting ? 'Submitting…' : 'Submit for Review'}
+              {submitting ? 'Submittingâ€¦' : 'Submit for Review'}
             </button>
           )}
         </div>

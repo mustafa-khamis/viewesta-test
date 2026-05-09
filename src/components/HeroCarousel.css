@@ -20,18 +20,29 @@
 }
 
 .carousel-track {
-  display: flex;
+  position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.5s ease-in-out;
 }
 
 .carousel-slide {
-  flex: 0 0 100%;
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.8s ease-in-out, visibility 0.8s ease-in-out;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.carousel-slide.active {
+  opacity: 1;
+  visibility: visible;
+  z-index: 2;
 }
 
 .slide-background {

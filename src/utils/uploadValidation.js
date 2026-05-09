@@ -192,10 +192,22 @@ export function validateUploadForm(formData, mediaType) {
     }
   }
 
-  // ── Year ──
-  const year = Number(formData.year);
-  if (!year || year < 1900 || year > new Date().getFullYear() + 5) {
-    errors.year = `Year must be between 1900 and ${new Date().getFullYear() + 5}.`;
+  // ── Release Date ──
+  if (!formData.releaseDate) {
+    errors.releaseDate = 'Release Date is required.';
+  } else {
+    const year = new Date(formData.releaseDate).getFullYear();
+    if (!year || year < 1900 || year > new Date().getFullYear() + 5) {
+      errors.releaseDate = `Year must be between 1900 and ${new Date().getFullYear() + 5}.`;
+    }
+  }
+
+  // ── Country and Language ──
+  if (!formData.country?.trim()) {
+    errors.country = 'Country is required.';
+  }
+  if (!formData.language?.trim()) {
+    errors.language = 'Language is required.';
   }
 
   // ── Media assets ──

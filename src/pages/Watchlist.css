@@ -53,13 +53,88 @@
   justify-items: start; /* Prevent cards from stretching */
 }
 
-.watchlist-grid .movie-card {
-  width: 170px !important; /* Fixed width to match grid column */
+.watchlist-grid .watchlist-item-wrapper {
+  width: 170px !important;
   max-width: 170px !important;
+  position: relative;
+}
+
+.watchlist-grid .movie-card {
+  width: 100% !important; /* Fixed width to match grid column */
+  max-width: 100% !important;
   margin: 0 !important; /* Remove any margins */
   padding: 0 !important; /* Remove any padding */
   position: relative !important; /* Ensure proper positioning */
   box-sizing: border-box !important; /* Include border/padding in width */
+}
+
+/* ── Heart Remove Button ───────────────────────────────────────────────────── */
+.wishlist-heart-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  height: 34px;
+  width: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.wishlist-heart-btn .heart-filled,
+.wishlist-heart-btn .heart-empty {
+  position: absolute;
+  font-size: 16px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Default: show filled red heart */
+.wishlist-heart-btn .heart-filled {
+  color: #ef4444;
+  opacity: 1;
+  transform: scale(1);
+}
+.wishlist-heart-btn .heart-empty {
+  color: #ffffff;
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+/* Hover: swap to empty white heart */
+.wishlist-heart-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.75);
+  transform: scale(1.1);
+}
+.wishlist-heart-btn:hover:not(:disabled) .heart-filled {
+  opacity: 0;
+  transform: scale(0.7);
+}
+.wishlist-heart-btn:hover:not(:disabled) .heart-empty {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Removing state */
+.wishlist-heart-btn.removing {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: heartbeat 0.6s ease infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.wishlist-heart-btn:disabled {
+  cursor: not-allowed;
 }
 
 .empty-watchlist {
@@ -134,9 +209,16 @@
     width: 100%;
   }
   
+  .watchlist-grid .watchlist-item-wrapper {
+    width: 100% !important;
+    max-width: 150px !important;
+    position: relative;
+  }
+
+
   .watchlist-grid .movie-card {
     width: 100% !important; /* Fill grid cell - gap is handled by grid */
-    max-width: 150px !important; /* Don't exceed 150px */
+    max-width: 100% !important; /* Don't exceed 150px */
     margin: 0 !important; /* Remove any margins */
     padding: 0 !important; /* Remove any padding */
     position: relative !important; /* Ensure proper positioning */
@@ -196,9 +278,15 @@
     width: 100%;
   }
   
+  .watchlist-grid .watchlist-item-wrapper {
+    width: 100% !important;
+    max-width: 140px !important;
+    position: relative;
+  }
+
   .watchlist-grid .movie-card {
     width: 100% !important; /* Fill grid cell - gap is handled by grid */
-    max-width: 140px !important; /* Don't exceed 140px */
+    max-width: 100% !important; /* Don't exceed 140px */
     margin: 0 !important; /* Remove any margins */
     padding: 0 !important; /* Remove any padding */
     position: relative !important; /* Ensure proper positioning */

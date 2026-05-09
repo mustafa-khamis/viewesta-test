@@ -150,105 +150,54 @@ const MediaUploadZone = ({
         <p className="muz-description">{description}</p>
       </div>
 
-      {/* Mode Tabs */}
-      <div className="muz-mode-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'file'}
-          className={`muz-tab ${mode === 'file' ? 'active' : ''}`}
-          onClick={() => setMode('file')}
-        >
-          <FaCloudUploadAlt /> Upload File
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'url'}
-          className={`muz-tab ${mode === 'url' ? 'active' : ''}`}
-          onClick={() => setMode('url')}
-        >
-          <FaLink /> Paste URL
-        </button>
-      </div>
-
       {/* Drop Zone / Preview */}
-      {mode === 'file' ? (
-        <div
-          className={`muz-dropzone ${isDragOver ? 'drag-over' : ''}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
-          }}
-          aria-label={`Upload ${label}`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={accept}
-            onChange={handleFileInput}
-            className="muz-file-input"
-            name={name}
-          />
+      <div
+        className={`muz-dropzone ${isDragOver ? 'drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+        }}
+        aria-label={`Upload ${label}`}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={handleFileInput}
+          className="muz-file-input"
+          name={name}
+        />
 
-          {preview && previewType === 'image' ? (
-            <div className="muz-preview-image">
-              <img src={preview} alt="Preview" />
-            </div>
-          ) : preview && previewType === 'video' ? (
-            <div className="muz-preview-video">
-              <video src={preview} controls muted preload="metadata" />
-            </div>
-          ) : (
-            <div className="muz-dropzone-empty">
-              <FaCloudUploadAlt className="muz-upload-icon" />
-              <p className="muz-drop-text">
-                <strong>Drag &amp; drop</strong> or <strong>click</strong> to browse
-              </p>
-              <p className="muz-file-info">Max {maxSizeMB} MB</p>
-            </div>
-          )}
-
-          {currentFile && (
-            <div className="muz-file-chip">
-              <span className="muz-file-chip__name">{currentFile.name}</span>
-              <span className="muz-file-chip__size">{formatFileSize(currentFile.size)}</span>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* URL Mode */
-        <div className="muz-url-mode">
-          <div className="muz-url-input-row">
-            <input
-              type="url"
-              className={`muz-url-input ${displayError ? 'error' : ''}`}
-              placeholder="https://..."
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
-            />
-            <button
-              type="button"
-              className="muz-url-submit"
-              onClick={handleUrlSubmit}
-            >
-              Use URL
-            </button>
+        {preview && previewType === 'image' ? (
+          <div className="muz-preview-image">
+            <img src={preview} alt="Preview" />
           </div>
-          {currentUrl && (
-            <p className="muz-url-set">
-              <FaCheckCircle className="muz-success-icon" />
-              URL set: <em>{currentUrl.length > 60 ? currentUrl.slice(0, 60) + '…' : currentUrl}</em>
+        ) : preview && previewType === 'video' ? (
+          <div className="muz-preview-video">
+            <video src={preview} controls muted preload="metadata" />
+          </div>
+        ) : (
+          <div className="muz-dropzone-empty">
+            <FaCloudUploadAlt className="muz-upload-icon" />
+            <p className="muz-drop-text">
+              <strong>Drag &amp; drop</strong> or <strong>click</strong> to browse
             </p>
-          )}
-        </div>
-      )}
+            <p className="muz-file-info">Max {maxSizeMB} MB</p>
+          </div>
+        )}
+
+        {currentFile && (
+          <div className="muz-file-chip">
+            <span className="muz-file-chip__name">{currentFile.name}</span>
+            <span className="muz-file-chip__size">{formatFileSize(currentFile.size)}</span>
+          </div>
+        )}
+      </div>
 
       {/* Error */}
       {displayError && (

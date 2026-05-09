@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import * as authService from '../services/authService';
 import { registerUser } from '../utils/apiClient.js';
 import { loginUser } from '../utils/apiClient';
-import { getCurrentUser } from '../utils/apiClient.js';
+import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword } from '../utils/apiClient.js';
 
 const AuthContext = createContext();
 const USER_KEY = 'viewesta_user';
@@ -64,7 +64,8 @@ export const AuthProvider = ({ children }) => {
         return;
       }
       const res = await getCurrentUser();
-      persistUser(res.data.user || res.data);
+      const fetchedUser = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
+      persistUser(fetchedUser);
     } catch (err) {
       console.log('Auth check failed:', err.message);
 
@@ -84,8 +85,8 @@ const login = async (email, password) => {
     const res = await loginUser({ email, password });
 
     // the correct data based on the backend 
-    const user = res.data.data.user;
-    const token = res.data.data.token;
+    const user = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
+    const token = res.data?.data?.token || res.data?.token;
 
     if (token) {
       localStorage.setItem('viewesta_token', token);
@@ -117,8 +118,8 @@ const register = async (data) => {
     const res = await registerUser(data);
 
     // the correct data based on the backend response 
-    const user = res.data.data.user;
-    const token = res.data.data.token;
+    const user = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
+    const token = res.data?.data?.token || res.data?.token;
 
     if (token) {
       localStorage.setItem('viewesta_token', token);
@@ -142,9 +143,41 @@ const register = async (data) => {
 
   const updateProfile = async (updates) => {
     if (!user) return { success: false, error: 'Not logged in' };
+    
+    // Extract first_name and last_name as required by the backend
+    const payload = {
+      first_name: updates.first_name || user.first_name || '',
+      last_name: updates.last_name || user.last_name || '',
+    };
+    
+    // Optimistic UI update
+    const previousUser = { ...user };
     const updated = { ...user, ...updates };
     persistUser(updated);
-    return { success: true, user: updated };
+
+    try {
+      const res = await updateUserProfile(payload);
+      
+      // Update with exact backend representation if available
+      const backendUser = res.data?.data?.user || res.data?.data || res.data || {};
+      const fullySyncedUser = { ...updated, ...backendUser };
+      
+      persistUser(fullySyncedUser);
+      return { success: true, user: fullySyncedUser };
+    } catch (err) {
+      // Revert optimistic update
+      persistUser(previousUser);
+      return { success: false, error: err.message || 'Failed to update profile' };
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      await apiChangePassword({ current_password: currentPassword, new_password: newPassword });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to change password' };
+    }
   };
 
   const updateWallet = (amount) => {
@@ -178,6 +211,7 @@ const register = async (data) => {
     socialLogin: async () => ({ success: false, error: 'Social login is not available yet.' }),
     logout,
     updateProfile,
+    changePassword,
     updateWallet,
     purchaseMovie,
     refreshProfile: () => user && persistUser(user),

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaPlay, FaHeart, FaClock, FaBookmark, FaCalendar } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useMovies } from '../context/MovieContext';
@@ -11,6 +11,7 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
   const [isTrailerPlaying, setIsTrailerPlaying] = useState(false);
   const [imageError, setImageError] = useState(false);
   const videoRef = useRef(null);
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { watchlist, addToWatchlist, removeFromWatchlist } = useMovies();
   const isInWatchlist = movie?.id ? watchlist.includes(movie.id) : false;
@@ -124,6 +125,8 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              const path = movie.type === 'Series' ? `/series/${movie.id}` : `/movie/${movie.id}`;
+              navigate(path);
             }}
           >
             <div className="play-button">

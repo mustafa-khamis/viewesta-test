@@ -1,103 +1,524 @@
-.filmmaker-studio-profile {
-  width: 100%;
-  min-height: calc(100vh - 56px);
+/* ═══════════════════════════════════════════════════════════
+   Filmmaker Studio Profile — FilmmakerStudioProfile.css
+   Full-page profile for the filmmaker role.
+   Shares design tokens with Profile.css / global theme.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Page shell ── */
+.fsp-page {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  padding: 32px 28px;
+  max-width: 800px;
+  margin: 0 auto;
   box-sizing: border-box;
 }
 
-.studio-profile-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  flex-shrink: 0;
+/* ── Skeleton loading ── */
+.fsp-skeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 60px 0;
 }
 
-.studio-profile-avatar {
-  width: 80px;
-  height: 80px;
+.fsp-skel-avatar {
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
-  background: var(--primary, #D06224);
-  margin: 0 auto 1rem;
+  background: #222;
+  animation: fsp-pulse 1.4s ease-in-out infinite;
+}
+
+.fsp-skel-line {
+  height: 16px;
+  border-radius: 8px;
+  background: #222;
+  width: 140px;
+  animation: fsp-pulse 1.4s ease-in-out infinite;
+}
+
+.fsp-skel-line--wide { width: 220px; }
+
+@keyframes fsp-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.9; }
+}
+
+/* ── Unauthenticated ── */
+.fsp-unauthenticated {
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  color: #fafafa;
+}
+
+.fsp-unauth-icon {
+  font-size: 56px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+/* ── Success / error banners ── */
+.fsp-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  animation: fsp-slide-in 0.25s ease;
+}
+
+.fsp-banner--success {
+  background: #14532d;
+  border: 1px solid #22c55e;
+  color: #22c55e;
+}
+
+@keyframes fsp-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════
+   Profile Header Card
+   ═══════════════════════════════════════ */
+.fsp-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle orange glow accent top-right */
+.fsp-header::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(208,98,36,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Avatar ── */
+.fsp-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+}
+
+.fsp-avatar-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #D06224;
+  display: block;
+  transition: border-color 0.2s;
+}
+
+.fsp-avatar-img:hover { border-color: #e07030; }
+
+.fsp-camera-btn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #D06224;
+  color: #fff;
+  border: 2px solid #0a0a0a;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.fsp-camera-btn:hover {
+  background: #b84d1a;
+  transform: scale(1.1);
+}
+
+/* Filmmaker badge below avatar */
+.fsp-role-badge {
+  display: block;
+  text-align: center;
+  margin-top: 8px;
+  font-size: 10px;
   font-weight: 700;
-  color: white;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #D06224;
+  background: rgba(208,98,36,0.12);
+  border: 1px solid rgba(208,98,36,0.35);
+  border-radius: 999px;
+  padding: 2px 10px;
 }
 
-.studio-profile-avatar img {
+/* ── Info area ── */
+.fsp-info { flex: 1; min-width: 0; }
+
+.fsp-name {
+  font-size: 26px;
+  font-weight: 700;
+  color: #fafafa;
+  margin: 0 0 4px 0;
+  line-height: 1.2;
+}
+
+.fsp-studio {
+  font-size: 14px;
+  font-weight: 600;
+  color: #D06224;
+  margin: 0 0 4px 0;
+}
+
+.fsp-email {
+  color: #737373;
+  font-size: 14px;
+  margin: 0 0 8px 0;
+}
+
+.fsp-bio {
+  color: #a3a3a3;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 14px 0;
+}
+
+.fsp-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  padding: 8px 18px;
+  margin-top: 4px;
+}
+
+/* ── Edit Form ── */
+.fsp-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
 }
 
-.studio-profile-name {
-  font-size: 1.25rem;
-  margin: 0 0 0.25rem 0;
+.fsp-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-.studio-profile-email {
-  color: var(--muted-foreground, #a3a3a3);
-  font-size: 0.9375rem;
+.fsp-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fsp-edit-field label {
+  color: #a3a3a3;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fsp-label-hint {
+  font-weight: 400;
+  color: #525252;
+  text-transform: none;
+}
+
+.fsp-input {
+  background: #0a0a0a;
+  border: 1px solid #262626;
+  border-radius: 10px;
+  color: #fafafa;
+  font-size: 14px;
+  padding: 10px 14px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.fsp-input:focus { border-color: #D06224; }
+
+.fsp-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+
+.fsp-error {
+  color: #ef4444;
+  font-size: 13px;
   margin: 0;
 }
 
-.studio-profile-menu {
+.fsp-edit-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+/* ═══════════════════════════════════════
+   Stats Bar
+   ═══════════════════════════════════════ */
+.fsp-stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px 24px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fsp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 60px;
+}
+
+.fsp-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fafafa;
+  line-height: 1;
+}
+
+.fsp-stat-label {
+  font-size: 11px;
+  color: #737373;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fsp-stat-divider {
+  width: 1px;
+  height: 40px;
+  background: #262626;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════
+   Sections
+   ═══════════════════════════════════════ */
+.fsp-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px 28px;
+}
+
+.fsp-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #a3a3a3;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 16px 0;
+}
+
+/* ── Quick-action grid ── */
+.fsp-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.fsp-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  background: #111;
+  border: 1px solid #262626;
+  border-radius: 14px;
+  color: #d4d4d4;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  cursor: pointer;
+}
+
+.fsp-action-card:hover {
+  border-color: #D06224;
+  background: rgba(208,98,36,0.07);
+  color: #fafafa;
+  transform: translateY(-2px);
+}
+
+.fsp-action-card--highlight {
+  border-color: #D06224;
+  background: rgba(208,98,36,0.1);
+  color: #fafafa;
+}
+
+.fsp-action-card--highlight:hover {
+  background: rgba(208,98,36,0.2);
+}
+
+.fsp-action-icon {
+  font-size: 22px;
+  color: #D06224;
+}
+
+/* ── Account menu list ── */
+.fsp-menu-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--border, #262626);
-  border-radius: var(--radius, 8px);
-  overflow: hidden;
-  flex: 1;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.studio-profile-menu li {
-  border-bottom: 1px solid var(--border, #262626);
-}
-
-.studio-profile-menu li:last-child {
-  border-bottom: none;
-}
-
-.studio-profile-menu a {
-  display: block;
-  padding: 0.875rem 1rem;
-  color: var(--foreground, #fafafa);
+.fsp-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 10px;
+  color: #a3a3a3;
+  font-size: 14px;
+  font-weight: 500;
   text-decoration: none;
-  transition: background 0.2s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.studio-profile-menu a:hover {
-  background: var(--muted, #262626);
+.fsp-menu-item:hover {
+  background: #1a1a1a;
+  color: #fafafa;
 }
 
-.studio-profile-logout {
-  display: block;
+.fsp-menu-item svg { font-size: 15px; color: #525252; }
+
+/* Logout button — styled identically to a menu link */
+.fsp-logout-btn {
   width: 100%;
-  padding: 0.875rem 1rem;
-  border: none;
   background: none;
-  color: var(--foreground, #fafafa);
-  font-size: inherit;
+  border: none;
   font-family: inherit;
-  text-align: left;
   cursor: pointer;
-  transition: background 0.2s;
+  text-align: left;
+  color: #ef4444;
 }
 
-.studio-profile-logout:hover {
-  background: var(--muted, #262626);
+.fsp-logout-btn:hover {
+  background: rgba(239,68,68,0.08);
+  color: #f87171;
 }
 
-.studio-profile-footer {
-  margin-top: auto;
-  padding-top: 2rem;
-  flex-shrink: 0;
-  font-size: 0.8125rem;
-  color: var(--muted-foreground, #a3a3a3);
+.fsp-logout-btn svg { color: #ef4444; }
+
+
+/* ── Buttons ── */
+.fsp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, transform 0.15s, opacity 0.2s;
+  text-decoration: none;
+}
+
+.fsp-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.fsp-btn--primary {
+  background: #D06224;
+  color: #fff;
+}
+
+.fsp-btn--primary:not(:disabled):hover {
+  background: #b84d1a;
+  transform: translateY(-1px);
+}
+
+.fsp-btn--outline {
+  background: transparent;
+  color: #a3a3a3;
+  border: 1px solid #404040;
+}
+
+.fsp-btn--outline:hover {
+  border-color: #D06224;
+  color: #fafafa;
+}
+
+/* ── Footer ── */
+.fsp-footer {
   text-align: center;
+  color: #404040;
+  font-size: 12px;
+  padding-bottom: 12px;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════ */
+@media (max-width: 680px) {
+  .fsp-page { padding: 20px 16px; gap: 14px; }
+
+  .fsp-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 20px;
+    gap: 20px;
+  }
+
+  .fsp-edit-row { grid-template-columns: 1fr; }
+
+  .fsp-edit-actions { justify-content: center; }
+
+  .fsp-stats-bar { padding: 16px 12px; }
+  .fsp-stat-value { font-size: 20px; }
+  .fsp-stat-divider { height: 30px; }
+
+  .fsp-actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .fsp-section { padding: 20px 16px; }
+}
+
+@media (max-width: 400px) {
+  .fsp-actions-grid { grid-template-columns: repeat(2, 1fr); }
+  .fsp-name { font-size: 22px; }
+  .fsp-stat-value { font-size: 18px; }
 }

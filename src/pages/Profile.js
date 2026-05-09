@@ -23,7 +23,7 @@ import './Profile.css';
 const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=D06224&color=fff&size=128&name=';
 
 const Profile = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, changePassword, loading } = useAuth();
   const { watchlist, getMovieById } = useMovies();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -31,12 +31,13 @@ const Profile = () => {
   // backend style split fields
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
 
   // const [editBio, setEditBio] = useState(''); // BIO DISABLED (backend doesn't support it)
 
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
   const [avatarPreview, setAvatarPreview] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [qualityPref, setQualityPref] = useState('');
   const [notifPref, setNotifPref] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,12 +56,13 @@ const Profile = () => {
   const handleEditStart = () => {
     setEditFirstName(user?.first_name || '');
     setEditLastName(user?.last_name || '');
-    setEditEmail(user?.email || '');
 
     // setEditBio(user?.bio || ''); // BIO DISABLED
 
     setEditAvatarUrl(user?.avatar || '');
     setAvatarPreview(user?.avatar || '');
+    setCurrentPassword('');
+    setNewPassword('');
     setQualityPref(user?.preferences?.quality || '1080p');
     setNotifPref(user?.preferences?.notifications ?? true);
     setSaveSuccess(false);
@@ -99,7 +101,6 @@ const Profile = () => {
     const updates = {
       first_name: editFirstName.trim(),
       last_name: editLastName.trim(),
-      email: editEmail.trim(),
 
       // bio: editBio.trim(), // BIO DISABLED
 
@@ -107,22 +108,48 @@ const Profile = () => {
       preferences: { quality: qualityPref, notifications: notifPref },
     };
     const result = await updateProfile(updates);
+    
+    let pwSuccess = true;
+    if (currentPassword && newPassword) {
+      const pwResult = await changePassword(currentPassword, newPassword);
+      if (!pwResult.success) {
+        pwSuccess = false;
+        setSaveError(pwResult.error || 'Failed to change password.');
+      }
+    }
+
     setSaving(false);
-    if (result.success) {
+    if (result.success && pwSuccess) {
       setSaveSuccess(true);
       setIsEditing(false);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } else {
+    } else if (!result.success) {
       setSaveError(result.error || 'Failed to save changes.');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="profile-page">
+        <div className="profile-container layout-container">
+          <div className="profile-header skeleton">
+             <div className="skeleton-avatar" style={{width: 128, height: 128, borderRadius: '50%', backgroundColor: '#222'}}></div>
+             <div className="skeleton-info" style={{marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10}}>
+                <div style={{width: 200, height: 32, backgroundColor: '#222'}}></div>
+                <div style={{width: 150, height: 20, backgroundColor: '#222'}}></div>
+             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
       <div className="profile-not-found">
         <div className="profile-nf-icon"><FaUser /></div>
         <h2>Please log in to view your profile</h2>
-        <p>Sign in to access your watchlist, wallet, and settings.</p>
+        <p>Sign in to access your wishlist, wallet, and settings.</p>
         <Link to="/login" className="btn btn-primary">Sign In</Link>
       </div>
     );
@@ -192,15 +219,7 @@ const Profile = () => {
                   </div>
                 </div>
 
-                <div className="edit-field">
-                  <label>Email</label>
-                  <input
-                    className="profile-edit-input"
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                  />
-                </div>
+
 
                 <div className="edit-field">
                   <label>Avatar URL</label>
@@ -210,6 +229,29 @@ const Profile = () => {
                     onChange={handleAvatarUrlChange}
                     placeholder="https://..."
                   />
+                </div>
+
+                <div className="edit-row">
+                  <div className="edit-field">
+                    <label>Current Password</label>
+                    <input
+                      type="password"
+                      className="profile-edit-input"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Leave blank to keep current"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <label>New Password</label>
+                    <input
+                      type="password"
+                      className="profile-edit-input"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Leave blank to keep current"
+                    />
+                  </div>
                 </div>
 
                 {/* BIO FIELD (DISABLED - BACKEND NOT SUPPORTED)
@@ -267,7 +309,7 @@ const Profile = () => {
         <div className="profile-stats-bar">
           <div className="pstat">
             <span className="pstat-value">{watchlistMovies.length}</span>
-            <span className="pstat-label">Watchlist</span>
+            <span className="pstat-label">Wishlist</span>
           </div>
           <div className="pstat-divider" />
           <div className="pstat">
@@ -321,9 +363,9 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* ── Watchlist ── */}
+          {/* ── Wishlist ── */}
           <div className="profile-section">
-            <h2 className="section-title"><FaHeart /> Watchlist</h2>
+            <h2 className="section-title"><FaHeart /> Wishlist</h2>
             <p className="section-desc">Titles you saved to watch later.</p>
             {watchlistMovies.length > 0 ? (
               <div className="profile-movie-row">
@@ -334,12 +376,12 @@ const Profile = () => {
             ) : (
               <div className="profile-empty-state">
                 <FaHeart className="empty-icon" />
-                <p>Your watchlist is empty. Start adding titles!</p>
+                <p>Your wishlist is empty. Start adding titles!</p>
                 <Link to="/movies" className="btn btn-outline btn-small">Browse Movies</Link>
               </div>
             )}
             {watchlistMovies.length > 0 && (
-              <Link to="/watchlist" className="btn btn-outline">View full watchlist</Link>
+              <Link to="/watchlist" className="btn btn-outline">View full wishlist</Link>
             )}
           </div>
 

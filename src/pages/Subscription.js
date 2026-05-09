@@ -1,59 +1,77 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   FaCheck, FaCrown, FaStar, FaFilm, FaDownload,
-  FaBan, FaHeadset, FaShieldAlt, FaBolt, FaGem,
+  FaBan, FaHeadset, FaShieldAlt, FaBolt, FaGem, FaSpinner,
 } from 'react-icons/fa';
+import { getSubscriptionPlans, subscribe } from '../services/subscriptionService';
 import './Subscription.css';
 
-const plans = [
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: 9.99,
-    period: 'month',
-    icon: <FaBolt />,
-    tag: null,
-    features: [
-      'Unlimited movies & series',
-      'All quality options (4K, 1080p, 720p)',
-      'No ads – pure viewing',
-      'Download for offline viewing',
-      'Cancel anytime',
-    ],
-    popular: false,
-  },
-  {
-    id: 'yearly',
-    name: 'Yearly',
-    price: 99.99,
-    period: 'year',
-    icon: <FaGem />,
-    tag: 'Save 17%',
-    originalPrice: 119.88,
-    features: [
-      'Everything in Monthly',
-      'Priority customer support',
-      'Early access to new releases',
-      'Exclusive filmmaker content',
-      'Free months every year',
-    ],
-    popular: true,
-  },
-];
+/* ── Static plan display helpers (icons / tags by id / interval) ── */
+const planMeta = {
+  monthly: { icon: <FaBolt />, tag: null,       popular: false },
+  yearly:  { icon: <FaGem />,  tag: 'Save 17%', popular: true  },
+  premium: { icon: <FaCrown />,tag: 'Best',      popular: false },
+};
+
+const fallbackIcon = <FaStar />;
 
 const trustItems = [
-  { icon: <FaFilm />,     title: 'Unlimited Content',   desc: 'Access thousands of African films and series anytime.' },
-  { icon: <FaDownload />, title: 'Offline Downloads',    desc: 'Save your favourites and watch without internet.' },
-  { icon: <FaBan />,      title: 'Zero Ads',             desc: 'Uninterrupted viewing from start to finish.' },
-  { icon: <FaHeadset />,  title: 'Priority Support',     desc: 'Real humans ready to help whenever you need.' },
+  { icon: <FaFilm />,     title: 'Unlimited Content',  desc: 'Access thousands of African films and series anytime.' },
+  { icon: <FaDownload />, title: 'Offline Downloads',   desc: 'Save your favourites and watch without internet.' },
+  { icon: <FaBan />,      title: 'Zero Ads',            desc: 'Uninterrupted viewing from start to finish.' },
+  { icon: <FaHeadset />,  title: 'Priority Support',    desc: 'Real humans ready to help whenever you need.' },
 ];
 
 const Subscription = () => {
   const { user } = useAuth();
 
-  const handleSubscribe = (planId) => {
-    console.log(`Subscribing to ${planId} plan`);
+  const [plans, setPlans]               = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError]     = useState('');
+
+  const [subscribing, setSubscribing]   = useState(null);   // planId currently being processed
+  const [subSuccess, setSubSuccess]     = useState('');
+  const [subError, setSubError]         = useState('');
+
+  /* ── fetch plans ── */
+  useEffect(() => {
+    let cancelled = false;
+    setPlansLoading(true);
+    setPlansError('');
+    getSubscriptionPlans()
+      .then((list) => { if (!cancelled) setPlans(Array.isArray(list) ? list : []); })
+      .catch((err) => {
+        if (!cancelled)
+          setPlansError(
+            err?.response?.data?.message ||
+            err?.message ||
+            'Failed to load subscription plans. Please try again.'
+          );
+      })
+      .finally(() => { if (!cancelled) setPlansLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  /* ── subscribe handler ── */
+  const handleSubscribe = async (planId) => {
+    if (!user) return;
+    setSubscribing(planId);
+    setSubSuccess('');
+    setSubError('');
+    try {
+      await subscribe({ plan_id: planId });
+      setSubSuccess(`You're now subscribed to the ${planId} plan!`);
+      setTimeout(() => setSubSuccess(''), 4000);
+    } catch (err) {
+      setSubError(
+        err?.response?.data?.message ||
+        err?.message ||
+        'Subscription failed. Please try again.'
+      );
+    } finally {
+      setSubscribing(null);
+    }
   };
 
   if (!user) {
@@ -85,51 +103,88 @@ const Subscription = () => {
 
       <div className="subscription-container layout-container">
 
+        {/* ── Feedback banners ── */}
+        {subSuccess && (
+          <div className="sub-feedback sub-feedback--success">
+            <FaCheck /> {subSuccess}
+          </div>
+        )}
+        {subError && (
+          <div className="sub-feedback sub-feedback--error">
+            ⚠ {subError}
+          </div>
+        )}
+
         {/* ── Plan Cards ── */}
-        <div className="plans-grid">
-          {plans.map(plan => (
-            <div
-              key={plan.id}
-              className={`plan-card ${plan.popular ? 'popular' : ''}`}
-            >
-              {plan.popular && (
-                <div className="popular-badge">
-                  <FaStar /> Most Popular
+        {plansLoading ? (
+          <div className="sub-loading">
+            <FaSpinner className="sub-spinner" /> Loading plans…
+          </div>
+        ) : plansError ? (
+          <div className="sub-error-msg">
+            ⚠ {plansError}
+          </div>
+        ) : (
+          <div className="plans-grid">
+            {plans.map((plan) => {
+              const meta    = planMeta[plan.id] || {};
+              const icon    = meta.icon    ?? fallbackIcon;
+              const tag     = meta.tag     ?? plan.tag     ?? null;
+              const popular = meta.popular ?? plan.popular ?? false;
+              const feats   = Array.isArray(plan.features) ? plan.features : [];
+              const isBusy  = subscribing === plan.id;
+
+              return (
+                <div key={plan.id} className={`plan-card ${popular ? 'popular' : ''}`}>
+                  {popular && (
+                    <div className="popular-badge">
+                      <FaStar /> Most Popular
+                    </div>
+                  )}
+
+                  <div className="plan-icon">{icon}</div>
+
+                  <div className="plan-header">
+                    <h3 className="plan-name">{plan.name}</h3>
+                    {tag && <span className="plan-tag">{tag}</span>}
+                    <div className="plan-price">
+                      <span className="price">
+                        {plan.currency === 'USD' || !plan.currency ? '$' : ''}{plan.price ?? plan.amount ?? '—'}
+                      </span>
+                      <span className="period">/{plan.interval ?? plan.period ?? 'month'}</span>
+                    </div>
+                    {plan.originalPrice && (
+                      <div className="original-price">was ${plan.originalPrice}</div>
+                    )}
+                  </div>
+
+                  {feats.length > 0 && (
+                    <ul className="plan-features">
+                      {feats.map((feature, i) => (
+                        <li key={i} className="feature-item">
+                          <FaCheck className="check-icon" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <button
+                    className={`btn ${popular ? 'btn-primary' : 'btn-outline'} btn-full sub-btn`}
+                    onClick={() => handleSubscribe(plan.id)}
+                    disabled={isBusy}
+                  >
+                    {isBusy
+                      ? <><FaSpinner className="btn-spinner" /> Processing…</>
+                      : user.subscription?.active
+                        ? 'Change Plan'
+                        : 'Get Started'}
+                  </button>
                 </div>
-              )}
-
-              <div className="plan-icon">{plan.icon}</div>
-
-              <div className="plan-header">
-                <h3 className="plan-name">{plan.name}</h3>
-                {plan.tag && <span className="plan-tag">{plan.tag}</span>}
-                <div className="plan-price">
-                  <span className="price">${plan.price}</span>
-                  <span className="period">/{plan.period}</span>
-                </div>
-                {plan.originalPrice && (
-                  <div className="original-price">was ${plan.originalPrice}</div>
-                )}
-              </div>
-
-              <ul className="plan-features">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="feature-item">
-                    <FaCheck className="check-icon" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <button
-                className={`btn ${plan.popular ? 'btn-primary' : 'btn-outline'} btn-full sub-btn`}
-                onClick={() => handleSubscribe(plan.id)}
-              >
-                {user.subscription?.active ? 'Manage Subscription' : 'Get Started'}
-              </button>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Trust Grid ── */}
         <div className="trust-section">

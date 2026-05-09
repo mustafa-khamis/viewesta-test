@@ -115,6 +115,10 @@ export const normalizeMovie = (rawMovie = {}) => {
       .map((category) => category?.name)
       .filter(Boolean);
 
+  if (genres.length === 0 && rawMovie.category_name) {
+    genres.push(rawMovie.category_name);
+  }
+
   const cast = normalizePeopleList(rawMovie.cast);
 
   const ageRating =
@@ -141,20 +145,22 @@ export const normalizeMovie = (rawMovie = {}) => {
     title: rawMovie.title || 'Untitled',
     year: releaseYear || '—',
     rating: rawMovie.rating || rawMovie.average_rating || rawMovie.score || 0,
+    average_rating: rawMovie.average_rating ?? null,
     duration: durationMinutes,
     genres: genres.length ? genres : ['General'],
     poster:
       rawMovie.poster ||
       rawMovie.poster_url ||
       rawMovie.cover_url ||
-      'https://via.placeholder.com/300x450/111827/FFFFFF?text=No+Poster',
+      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450"%3E%3Crect fill="%23333" width="300" height="450"/%3E%3Ctext x="50%" y="50%" font-size="18" fill="%23999" text-anchor="middle" dominant-baseline="middle"%3ENo Poster%3C/text%3E%3C/svg%3E',
     backdrop:
       rawMovie.backdrop ||
       rawMovie.backdrop_url ||
       rawMovie.hero_image ||
-      'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=600&fit=crop',
+      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"%3E%3Crect fill="%23222" width="1200" height="600"/%3E%3Ctext x="50%" y="50%" font-size="24" fill="%23666" text-anchor="middle" dominant-baseline="middle"%3ENo Backdrop%3C/text%3E%3C/svg%3E',
     description: rawMovie.description || rawMovie.synopsis || 'No description provided.',
-    director: rawMovie.director || rawMovie.directed_by || rawMovie.filmmaker || 'Unknown Director',
+    director: rawMovie.director || rawMovie.directed_by || rawMovie.filmmaker || 
+              (rawMovie.filmmaker_first_name ? `${rawMovie.filmmaker_first_name} ${rawMovie.filmmaker_last_name || ''}`.trim() : 'Unknown Director'),
     cast: cast.length ? cast : ['Unknown Cast'],
     quality: rawMovie.default_quality || '1080p',
     price: normalizePricing(rawMovie.pricing),

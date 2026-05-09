@@ -18,24 +18,30 @@ const SORT_OPTIONS = [
   { value: 'top_rated', label: 'Top Rated' },
 ];
 
+
+
 const Series = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [series, setSeries] = useState([]);
+  const [series, setSeries]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
 
   const genreParam = searchParams.get('genre') || 'All';
   const yearParam  = searchParams.get('year')  || '';
   const sortParam  = searchParams.get('sort')  || 'popular';
 
+  /* ── Data loading ─────────────────────────────────────────────────────────── */
   const loadSeries = useCallback(async () => {
     setLoading(true);
     setError('');
+    // Clear any previously loaded data so stale content is never shown on failure
+    setSeries([]);
     try {
-      const list = await seriesService.getSeries({ limit: 200 });
+      const list = await seriesService.getSeries({ limit: 50 });
       setSeries(list);
     } catch (err) {
-      setError(err?.message || 'Unable to load series right now.');
+      // err.message is already a safe, user-friendly string from seriesService
+      setError(err?.message || 'Something went wrong while loading series. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -45,18 +51,27 @@ const Series = () => {
     loadSeries();
   }, [loadSeries]);
 
+  /* ── Derive year list from loaded data ────────────────────────────────────── */
   const years = useMemo(() => {
     const set = new Set();
     series.forEach((s) => {
       const y = Number(s.year);
-      if (!Number.isNaN(y)) set.add(y);
+      if (!Number.isNaN(y) && y > 1900) set.add(y);
     });
     return [...set].sort((a, b) => b - a);
   }, [series]);
 
+  /* ── Client-side filter + sort ────────────────────────────────────────────── */
   const filteredAndSorted = useMemo(() => {
     let list = [...series];
+    const trendingParam = searchParams.get('trending') === 'true';
 
+    // Trending filter
+    if (trendingParam) {
+      list = list.filter((s) => s.trending);
+    }
+
+    // Genre filter
     if (genreParam && genreParam !== 'All') {
       const g = genreParam.toLowerCase();
       list = list.filter((s) =>
@@ -64,16 +79,33 @@ const Series = () => {
       );
     }
 
+    // Year filter
     if (yearParam) {
       const y = Number(yearParam);
       if (!Number.isNaN(y)) list = list.filter((s) => Number(s.year) === y);
     }
 
+    // Sort
     if (sortParam === 'newest') {
-      list.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      list.sort((a, b) => {
+        // Prefer full ISO release_date from raw payload (more precise than year)
+        const dateA = new Date(
+          a.raw?.release_date || a.raw?.released_at || String(a.year)
+        ).getTime();
+        const dateB = new Date(
+          b.raw?.release_date || b.raw?.released_at || String(b.year)
+        ).getTime();
+        if (!isNaN(dateA) && !isNaN(dateB)) return dateB - dateA;
+        return (Number(b.year) || 0) - (Number(a.year) || 0);
+      });
     } else if (sortParam === 'top_rated') {
-      list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
+      list.sort(
+        (a, b) =>
+          (Number(b.average_rating ?? b.rating) || 0) -
+          (Number(a.average_rating ?? a.rating) || 0)
+      );
     } else {
+      // popular: trending first, then by rating
       list.sort(
         (a, b) =>
           (b.trending ? 1 : 0) - (a.trending ? 1 : 0) ||
@@ -84,6 +116,7 @@ const Series = () => {
     return list;
   }, [series, genreParam, yearParam, sortParam]);
 
+  /* ── URL param helper ─────────────────────────────────────────────────────── */
   const setFilter = (key, value) => {
     const next = new URLSearchParams(searchParams);
     if (value && value !== 'All' && value !== '') next.set(key, value);
@@ -91,29 +124,16 @@ const Series = () => {
     setSearchParams(next);
   };
 
-  if (loading && !series.length) {
-    return (
-      <div className="series-page loading-state">
-        <div className="loading" />
-        <p>Loading TV shows...</p>
-      </div>
-    );
-  }
 
-  if (error && !series.length) {
-    return (
-      <div className="series-page error-state">
-        <p>{error}</p>
-        <button className="btn btn-primary" onClick={loadSeries}>
-          Try again
-        </button>
-      </div>
-    );
-  }
 
+
+
+  /* ── Main render ──────────────────────────────────────────────────────────── */
   return (
     <div className="series-page">
       <div className="series-container layout-container">
+
+        {/* Header */}
         <div className="series-header">
           <h1 className="series-title">
             <FaTv />
@@ -124,9 +144,10 @@ const Series = () => {
           </p>
         </div>
 
-        {error && series.length > 0 && (
+        {/* Inline error banner — shown regardless of whether data was loaded before */}
+        {error && (
           <div className="series-inline-error">
-            <span>{error}</span>
+            <span>⚠ Unable to load series</span>
             <button className="btn btn-ghost btn-small" onClick={loadSeries}>
               Retry
             </button>
@@ -177,6 +198,13 @@ const Series = () => {
               ))}
             </select>
           </div>
+
+          {/* Result count */}
+          {!loading && (
+            <span className="series-count">
+              {filteredAndSorted.length} show{filteredAndSorted.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
         {/* Grid */}
@@ -186,8 +214,28 @@ const Series = () => {
               <SkeletonCard key={i} />
             ))}
           </div>
+        ) : error && series.length === 0 ? (
+          // Error with no data — show a minimal placeholder where cards would be
+          <div className="series-empty">
+            <FaTv className="series-empty-icon" />
+            <p>Unable to load series</p>
+            <span>Check your connection and try again.</span>
+          </div>
         ) : filteredAndSorted.length === 0 ? (
-          <p className="series-empty">No shows match your filters. Try changing genre or year.</p>
+          <div className="series-empty">
+            {series.length === 0 ? (
+              <>
+                <FaTv className="series-empty-icon" />
+                <p>No series available right now.</p>
+                <span>Check back later or explore other content.</span>
+              </>
+            ) : (
+              <>
+                <p>No shows match your filters.</p>
+                <span>Try changing the genre or year.</span>
+              </>
+            )}
+          </div>
         ) : (
           <div className="series-grid">
             {filteredAndSorted.map((show) => (
@@ -195,6 +243,7 @@ const Series = () => {
             ))}
           </div>
         )}
+
       </div>
     </div>
   );

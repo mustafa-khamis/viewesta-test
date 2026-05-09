@@ -9,7 +9,6 @@ export default function EditProfile() {
   const { t } = useLocale();
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    email: user?.email || '',
   });
   const [saved, setSaved] = useState(false);
 
@@ -48,17 +47,7 @@ export default function EditProfile() {
             required
           />
         </div>
-        <div className="form-group">
-          <label htmlFor="edit-email">{t('auth.email')}</label>
-          <input
-            id="edit-email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-        </div>
+
         <button type="submit" className="btn btn-primary">Save changes</button>
       </form>
       <p className="edit-profile-back">

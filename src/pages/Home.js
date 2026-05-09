@@ -5,6 +5,8 @@ import MovieCard from '../components/MovieCard';
 import { SkeletonCard } from '../components/Skeleton';
 import { useMovies } from '../context/MovieContext';
 import { useAuth } from '../context/AuthContext';
+import { mockMovies } from '../services/mockData/movies';
+import { normalizeMovie } from '../utils/mediaHelpers';
 import './Home.css';
 
 const getMediaType = (movie = {}) => {
@@ -25,12 +27,18 @@ const calculateMaxVisible = () => {
 };
 
 const Home = () => {
-  const { featuredMovies, trendingMovies, movies, loading } = useMovies();
+  const { featuredMovies, trendingMovies, movies, newReleases, topRatedMovies, loading } = useMovies();
   const { user } = useAuth();
   const [trendingFilter, setTrendingFilter] = useState('movies');
   const maxVisibleItems = useMemo(() => calculateMaxVisible(), []);
 
-  const heroItems = featuredMovies.slice(0, 5).map((movie) => ({
+  // Use trending movies for hero to allow auto-sliding between multiple items
+  let heroMovies = trendingMovies.length > 0 ? trendingMovies : featuredMovies;
+  if (heroMovies.length === 0) {
+    heroMovies = mockMovies.slice(0, 5).map(normalizeMovie);
+  }
+  
+  const heroItems = heroMovies.slice(0, 5).map((movie) => ({
     ...movie,
     backdrop: movie.backdrop || movie.poster,
   }));
@@ -43,19 +51,22 @@ const Home = () => {
       .slice(0, maxVisibleItems);
   }, [maxVisibleItems, activeType, trendingMovies]);
 
-  const newReleases = useMemo(() => {
-    return [...movies]
+  const newReleasesSelection = useMemo(() => {
+    return newReleases
       .filter((movie) => getMediaType(movie) === activeType)
-      .sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0))
-      .slice(0, maxVisibleItems);
-  }, [maxVisibleItems, activeType, movies]);
+      .slice(0, 10);
+  }, [activeType, newReleases]);
 
+  // Top Rated: strictly from backend average_rating — no fallback, no mock data
   const topRated = useMemo(() => {
-    return [...movies]
-      .filter((movie) => getMediaType(movie) === activeType)
-      .sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0))
-      .slice(0, maxVisibleItems);
-  }, [maxVisibleItems, activeType, movies]);
+    return (topRatedMovies || [])
+      .filter((movie) =>
+        movie.average_rating !== null &&
+        movie.average_rating !== undefined &&
+        getMediaType(movie) === activeType
+      )
+      .slice(0, 12);
+  }, [topRatedMovies, activeType]);
 
   if (loading) {
     return (
@@ -101,19 +112,27 @@ const Home = () => {
         <section className="media-section">
           <div className="media-section-header">
             <h2 className="media-section-title">Trending</h2>
-            <div className="trending-toggle">
-              <button
-                className={`toggle-button ${trendingFilter === 'movies' ? 'active' : ''}`}
-                onClick={() => setTrendingFilter('movies')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <div className="trending-toggle">
+                <button
+                  className={`toggle-button ${trendingFilter === 'movies' ? 'active' : ''}`}
+                  onClick={() => setTrendingFilter('movies')}
+                >
+                  Movies
+                </button>
+                <button
+                  className={`toggle-button ${trendingFilter === 'tv' ? 'active' : ''}`}
+                  onClick={() => setTrendingFilter('tv')}
+                >
+                  Series
+                </button>
+              </div>
+              <Link
+                to={trendingFilter === 'tv' ? '/series?trending=true' : '/movies?trending=true'}
+                className="view-all-link"
               >
-                Movies
-              </button>
-              <button
-                className={`toggle-button ${trendingFilter === 'tv' ? 'active' : ''}`}
-                onClick={() => setTrendingFilter('tv')}
-              >
-                Series
-              </button>
+                View all
+              </Link>
             </div>
           </div>
           {trendingSelection.length ? (
@@ -139,9 +158,9 @@ const Home = () => {
               View all
             </Link>
           </div>
-          {newReleases.length ? (
+          {newReleasesSelection.length ? (
             <div className="media-grid">
-              {newReleases.map((movie) => (
+              {newReleasesSelection.map((movie) => (
                 <MovieCard key={movie.id} movie={movie} showWatchlist />
               ))}
             </div>
@@ -171,9 +190,7 @@ const Home = () => {
               ))}
             </div>
           ) : (
-            <p className="media-empty">
-              {trendingFilter === 'tv' ? 'Top rated series will appear here.' : 'Top rated titles will appear here.'}
-            </p>
+            <p className="media-empty">No rated movies available</p>
           )}
         </section>
       </div>

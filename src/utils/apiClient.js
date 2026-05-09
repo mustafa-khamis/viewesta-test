@@ -59,6 +59,9 @@ apiClient.interceptors.response.use(
     if (customError.status === 401) {
       localStorage.removeItem('viewesta_token');
       localStorage.removeItem('viewesta_user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
 
     return Promise.reject(customError);
@@ -92,5 +95,11 @@ export const loginUser = (data) =>
 
 export const getCurrentUser = () =>
   get('/auth/me');
+
+export const updateUserProfile = (data) =>
+  put('/auth/profile', data);
+
+export const changePassword = (data) =>
+  post('/auth/change-password', data);
 
 export default apiClient;

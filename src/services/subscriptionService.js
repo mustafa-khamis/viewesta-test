@@ -1,34 +1,55 @@
 /**
- * Subscription service — mock implementation.
- * TODO: Replace with apiClient when backend is ready: GET /subscriptions, POST /subscriptions/plans
+ * Subscription service — backend-connected.
+ * GET  /subscriptions/plans    → list all available plans
+ * POST /subscriptions/subscribe → subscribe to a plan
  */
 
-const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
-
-export const MOCK_PLANS = [
-  { id: 'monthly', name: 'Monthly', price: 9.99, currency: 'USD', interval: 'month', features: ['All movies', '1080p', 'Cancel anytime'] },
-  { id: 'yearly', name: 'Yearly', price: 89.99, currency: 'USD', interval: 'year', features: ['All movies', '4K', 'Save 25%', 'Cancel anytime'] },
-  { id: 'premium', name: 'Premium', price: 14.99, currency: 'USD', interval: 'month', features: ['All movies', '4K', 'Early access', 'Cancel anytime'] },
-];
+import client from '../api/client';
 
 /**
- * Fetch available subscription plans.
- * TODO: GET /subscriptions/plans
+ * Fetch available subscription plans from backend.
+ * @returns {Array<{ id, name, price, currency, interval, features, ... }>}
  */
 export async function getSubscriptionPlans() {
-  await delay();
-  return MOCK_PLANS;
+  const { data } = await client.get('/subscriptions/plans');
+
+  let rawPlans = [];
+  if (Array.isArray(data)) rawPlans = data;
+  else if (Array.isArray(data?.data)) rawPlans = data.data;
+  else if (Array.isArray(data?.plans)) rawPlans = data.plans;
+  else if (Array.isArray(data?.data?.plans)) rawPlans = data.data.plans;
+  else {
+    const candidates = [
+      data?.result,
+      data?.results,
+      data?.subscriptions,
+      data?.items,
+    ];
+    rawPlans = candidates.find((c) => Array.isArray(c)) || [];
+  }
+
+  return rawPlans.map(plan => {
+    let interval = plan.interval || plan.period;
+    if (!interval && plan.duration_days) {
+      if (plan.duration_days === 30 || plan.duration_days === 31) interval = 'month';
+      else if (plan.duration_days === 365) interval = 'year';
+      else interval = `${plan.duration_days} days`;
+    }
+
+    return {
+      ...plan,
+      id: plan.id || plan.type,
+      interval,
+    };
+  });
 }
 
 /**
- * Fetch current user's subscription (mock).
- * TODO: GET /subscriptions/me
+ * Subscribe the current user to a plan.
+ * @param {{ plan_id: string, payment_method?: string }} payload
+ * @returns {{ subscription: object, message: string }}
  */
-export async function getMySubscription() {
-  await delay();
-  return {
-    planId: 'monthly',
-    status: 'active',
-    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  };
+export async function subscribe({ plan_id, payment_method = 'wallet' }) {
+  const { data } = await client.post('/subscriptions/subscribe', { plan_id, payment_method });
+  return data;
 }

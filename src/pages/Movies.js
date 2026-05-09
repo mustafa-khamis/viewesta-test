@@ -21,16 +21,18 @@ const normalizeType = (item) => (item?.type || '').toLowerCase();
 
 const Movies = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { movies, loading, error, refreshCatalog } = useMovies();
+  const { movies, trendingMovies, loading, error, refreshCatalog } = useMovies();
 
   const genreParam = searchParams.get('genre') || 'All';
   const yearParam = searchParams.get('year') || '';
   const sortParam = searchParams.get('sort') || 'popular';
 
-  const movieOnly = useMemo(
-    () => movies.filter((m) => normalizeType(m) !== 'series'),
-    [movies]
-  );
+  const trendingParam = searchParams.get('trending') === 'true';
+
+  const movieOnly = useMemo(() => {
+    const sourceList = trendingParam ? trendingMovies : movies;
+    return sourceList.filter((m) => normalizeType(m) !== 'series');
+  }, [movies, trendingMovies, trendingParam]);
 
   const years = useMemo(() => {
     const set = new Set();
@@ -54,7 +56,12 @@ const Movies = () => {
       if (!Number.isNaN(y)) list = list.filter((m) => Number(m.year) === y);
     }
     if (sortParam === 'newest') {
-      list.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      list.sort((a, b) => {
+        const dateA = new Date(a.raw?.release_date || a.raw?.created_at || String(a.year)).getTime();
+        const dateB = new Date(b.raw?.release_date || b.raw?.created_at || String(b.year)).getTime();
+        if (!isNaN(dateA) && !isNaN(dateB)) return dateB - dateA;
+        return (Number(b.year) || 0) - (Number(a.year) || 0);
+      });
     } else if (sortParam === 'top_rated') {
       list.sort((a, b) => (Number(b.rating) || 0) - (Number(a.rating) || 0));
     } else {
@@ -70,14 +77,7 @@ const Movies = () => {
     setSearchParams(next);
   };
 
-  if (loading && !movies.length) {
-    return (
-      <div className="movies-page loading-state">
-        <div className="loading" />
-        <p>Loading movies...</p>
-      </div>
-    );
-  }
+
 
   if (error && !movies.length) {
     return (

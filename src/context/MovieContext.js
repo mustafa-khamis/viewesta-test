@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import * as movieService from '../services/movieService';
+import * as watchlistService from '../services/watchlistService';
 import {
   coerceMovieId,
   coerceArray,
@@ -31,6 +32,8 @@ export const MovieProvider = ({ children }) => {
   const [movies, setMovies] = useState([]);
   const [trendingMovies, setTrendingMovies] = useState([]);
   const [featuredMovies, setFeaturedMovies] = useState([]);
+  const [newReleases, setNewReleases] = useState([]);
+  const [topRatedMovies, setTopRatedMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
@@ -57,14 +60,18 @@ export const MovieProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      const [catalog, trending, featured] = await Promise.all([
+      const [catalog, trending, featured, newRel, topRated] = await Promise.all([
         movieService.getMovies({ limit: 100 }),
         movieService.getTrendingMovies(24),
         movieService.getFeaturedMovies(10),
+        movieService.getNewReleases(10),
+        movieService.getTopRatedMovies(12),
       ]);
       setMovies(catalog);
       setTrendingMovies(trending);
       setFeaturedMovies(featured);
+      setNewReleases(newRel);
+      setTopRatedMovies(topRated);
     } catch (err) {
       console.error('Failed to load catalog', err);
       setError(err.message || 'Unable to load movies.');
@@ -77,29 +84,55 @@ export const MovieProvider = ({ children }) => {
     refreshCatalog();
   }, [refreshCatalog]);
 
-  // Hydrate watchlist/favorites from user when logged in (mock: user has watchlist array of ids)
+  // Fetch real watchlist from backend on login
   useEffect(() => {
     if (!user) {
       setWatchlist([]);
       setFavorites([]);
       return;
     }
-    const wl = coerceArray(user.watchlist).map((id) => (typeof id === 'object' ? coerceMovieId(id) : String(id))).filter(Boolean);
+    const fetchWatchlist = async () => {
+      try {
+        const items = await watchlistService.getWatchlist();
+        setWatchlist(items.map((item) => String(item.id)));
+      } catch (err) {
+        console.error('Failed to load watchlist:', err);
+      }
+    };
+    fetchWatchlist();
+
     const fav = coerceArray(user.favorites || []).map((id) => (typeof id === 'object' ? coerceMovieId(id) : String(id))).filter(Boolean);
-    setWatchlist(wl);
     setFavorites(fav);
   }, [user]);
 
   const mutateWatchlist = useCallback(
     async (movieId, action) => {
       if (!user) return { success: false, error: 'Please log in first.' };
+      
+      const strId = String(movieId);
+      // Optimistic UI update
       if (action === 'add') {
-        setWatchlist((prev) => (prev.includes(movieId) ? prev : [...prev, movieId]));
+        setWatchlist((prev) => (prev.includes(strId) ? prev : [...prev, strId]));
       } else {
-        setWatchlist((prev) => prev.filter((id) => id !== movieId));
+        setWatchlist((prev) => prev.filter((id) => id !== strId));
       }
-      // TODO: API - POST/DELETE /watchlist/:id
-      return { success: true };
+      
+      try {
+        if (action === 'add') {
+          await watchlistService.addToWatchlist(movieId);
+        } else {
+          await watchlistService.removeFromWatchlist(movieId);
+        }
+        return { success: true };
+      } catch (err) {
+        // Revert on error
+        if (action === 'add') {
+          setWatchlist((prev) => prev.filter((id) => id !== strId));
+        } else {
+          setWatchlist((prev) => (prev.includes(strId) ? prev : [...prev, strId]));
+        }
+        return { success: false, error: 'Failed to update watchlist.' };
+      }
     },
     [user]
   );
@@ -199,6 +232,8 @@ export const MovieProvider = ({ children }) => {
       movies,
       trendingMovies,
       featuredMovies,
+      newReleases,
+      topRatedMovies,
       loading,
       error,
       watchlist,
@@ -211,6 +246,7 @@ export const MovieProvider = ({ children }) => {
       getMoviesByGenre,
       addToWatchlist,
       removeFromWatchlist,
+      mutateWatchlist,
       addToFavorites,
       removeFromFavorites,
       rateMovie,
@@ -226,6 +262,8 @@ export const MovieProvider = ({ children }) => {
       movies,
       trendingMovies,
       featuredMovies,
+      newReleases,
+      topRatedMovies,
       loading,
       error,
       watchlist,
@@ -238,6 +276,7 @@ export const MovieProvider = ({ children }) => {
       getMoviesByGenre,
       addToWatchlist,
       removeFromWatchlist,
+      mutateWatchlist,
       addToFavorites,
       removeFromFavorites,
       rateContent,

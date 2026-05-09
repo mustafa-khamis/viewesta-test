@@ -20,6 +20,7 @@ const MovieDetail = () => {
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+  const [isMutatingWatchlist, setIsMutatingWatchlist] = useState(false);
   const [movie, setMovie] = useState(() => getMovieById(id));
   const [detailLoading, setDetailLoading] = useState(!getMovieById(id));
   const [detailError, setDetailError] = useState('');
@@ -82,7 +83,7 @@ const MovieDetail = () => {
   // Check if movie is in watchlist
   useEffect(() => {
     if (movie && watchlist) {
-      setIsInWatchlist(watchlist.includes(movie.id));
+      setIsInWatchlist(watchlist.includes(String(movie.id)));
     }
   }, [movie, watchlist]);
 
@@ -151,14 +152,22 @@ const MovieDetail = () => {
     }
   };
 
-  const handleWatchlistToggle = () => {
+  const handleWatchlistToggle = async () => {
     if (user) {
-      if (isInWatchlist) {
-        removeFromWatchlist(movie.id);
-        setIsInWatchlist(false);
-      } else {
-        addToWatchlist(movie.id);
-        setIsInWatchlist(true);
+      if (isMutatingWatchlist) return;
+      
+      setIsMutatingWatchlist(true);
+      try {
+        const action = isInWatchlist ? 'remove' : 'add';
+        const result = action === 'add' ? await addToWatchlist(movie.id) : await removeFromWatchlist(movie.id);
+        
+        if (!result.success) {
+          alert(result.error || 'Failed to update watchlist. Please try again.');
+        } else {
+          setIsInWatchlist(action === 'add');
+        }
+      } finally {
+        setIsMutatingWatchlist(false);
       }
     } else {
       navigate('/login');
@@ -361,11 +370,12 @@ const MovieDetail = () => {
                 </button>
                 <button 
                   onClick={user ? handleWatchlistToggle : () => navigate('/login')}
+                  disabled={isMutatingWatchlist}
                   className={`btn btn-secondary wishlist-btn ${isInWatchlist ? 'active' : ''}`}
                   title={!user ? "Log in to add to your wishlist" : (isInWatchlist ? "Remove from wishlist" : "Add to wishlist")}
                 >
-                  <FaHeart className={isInWatchlist ? "heart-beat" : ""} />
-                  {isInWatchlist ? 'In Wishlist' : 'Wishlist'}
+                  <FaHeart className={isInWatchlist && !isMutatingWatchlist ? "heart-beat" : ""} />
+                  {isMutatingWatchlist ? 'Wait...' : (isInWatchlist ? 'In Wishlist' : 'Wishlist')}
                 </button>
               </div>
               <div className="secondary-cta">

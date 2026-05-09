@@ -1,56 +1,62 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useMovies } from '../../context/MovieContext';
+import { useLocale } from '../../context/LocaleContext';
+import { getFilmmakerMovies } from '../../services/movieService';
 import MovieCard from '../../components/MovieCard';
 import { SkeletonCard } from '../../components/Skeleton';
 import './FilmmakerMyMovies.css';
 import { FaEdit, FaEye } from 'react-icons/fa';
 
 /**
- * Filmmaker — list of my uploaded movies (mock).
- * TODO: GET /filmmaker/movies
+ * Filmmaker — list of my uploaded movies fetched from backend API.
  */
 function FilmmakerMyMovies() {
   const { user } = useAuth();
-  const { getMovieById, loading } = useMovies();
-  const myMovieIds = user?.myMovieIds || user?.myMovies || [];
+  const { t } = useLocale();
   
-  // Mock function to simulate approval status
-  const getApprovalStatus = (movie) => {
-    // In real app, this property comes from API
-    if (movie.approvalStatus) return movie.approvalStatus;
-    
-    // Fallback logic for demo
-    const idNum = parseInt(movie.id) || 0;
-    if (idNum % 4 === 0) return 'DRAFT';
-    if (idNum % 4 === 1) return 'PENDING';
-    if (idNum % 4 === 2) return 'REJECTED';
-    return 'APPROVED';
-  };
+  const [myMovies, setMyMovies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const myMovies = myMovieIds.map((id) => {
-    const m = getMovieById(id);
-    if (!m) return null;
-    return { ...m, approvalStatus: getApprovalStatus(m) };
-  }).filter(Boolean);
+  useEffect(() => {
+    const fetchMovies = async () => {
+      setLoading(true);
+      try {
+        const movies = await getFilmmakerMovies();
+        setMyMovies(movies || []);
+      } catch (err) {
+        console.error('Error fetching filmmaker movies:', err);
+        setError('Failed to load your movies. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (user) {
+      fetchMovies();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const getStatusBadge = (status) => {
-    switch(status) {
+    const s = String(status).toUpperCase();
+    switch(s) {
       case 'DRAFT': return <span className="status-badge status-draft">Draft</span>;
       case 'PENDING': return <span className="status-badge status-pending">Pending Review</span>;
       case 'REJECTED': return <span className="status-badge status-rejected">Rejected</span>;
       case 'APPROVED': return <span className="status-badge status-approved">Approved</span>;
-      default: return <span className="status-badge">Unknown</span>;
+      default: return <span className="status-badge status-pending">{status || 'Pending'}</span>;
     }
   };
 
   return (
     <div className="filmmaker-mymovies page-container">
       <div className="page-header">
-        <h1>My Movies</h1>
+        <h1>{t('myStudio')}</h1>
         <p className="subtitle">Manage your uploaded titles</p>
-        <Link to="/filmmaker-studio/upload" className="btn btn-primary">Upload Movie</Link>
+        <Link to="/filmmaker-studio/upload" className="btn btn-primary">{t('uploadNewMovie')}</Link>
       </div>
 
       {loading ? (
@@ -59,10 +65,14 @@ function FilmmakerMyMovies() {
             <SkeletonCard key={i} />
           ))}
         </div>
+      ) : error ? (
+        <div className="empty-state">
+          <p>{error}</p>
+        </div>
       ) : myMovies.length === 0 ? (
         <div className="empty-state">
-          <p>You haven't uploaded any movies yet.</p>
-          <Link to="/filmmaker-studio/upload" className="btn btn-primary">Upload your first movie</Link>
+          <p>You haven't uploaded any content yet.</p>
+          <Link to="/filmmaker-studio/upload" className="btn btn-primary">{t('uploadNewMovie')}</Link>
         </div>
       ) : (
         <div className="movies-grid">
@@ -71,7 +81,7 @@ function FilmmakerMyMovies() {
               <div className="movie-card-container">
                 <MovieCard movie={movie} showWatchlist={false} />
                 <div className="approval-overlay">
-                   {getStatusBadge(movie.approvalStatus)}
+                   {getStatusBadge(movie.status || movie.approvalStatus)}
                 </div>
               </div>
               <div className="movie-actions-bar">

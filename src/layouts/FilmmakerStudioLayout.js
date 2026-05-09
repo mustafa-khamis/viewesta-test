@@ -10,7 +10,7 @@ import './FilmmakerStudioLayout.css';
 
 const navItems = [
   { path: '/filmmaker-studio', pathExact: true, icon: FaFilm, key: 'dashboard' },
-  { path: '/filmmaker-studio/movies', icon: FaTv, key: 'myMovies' },
+  { path: '/filmmaker-studio/movies', icon: FaTv, key: 'myStudio' },
   { path: '/filmmaker-studio/upload', icon: FaPlus, key: 'upload' },
   { path: '/filmmaker-studio/earnings', icon: FaDollarSign, key: 'earnings' },
   { path: '/filmmaker-studio/profile', icon: FaUser, key: 'profile' },
