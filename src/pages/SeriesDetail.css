@@ -810,3 +810,77 @@
   background: #000;
   display: block;
 }
+
+/* ─── Modal overlay centering ──────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: #aaa;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+/* ─── Episode navigation bar inside watch modal ────────────── */
+.watch-episode-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.watch-episode-nav .btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #aaa;
+  padding: 5px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.watch-episode-nav .btn-ghost:hover:not(:disabled) {
+  border-color: rgba(255,255,255,0.3);
+  color: #fff;
+}
+
+.watch-episode-nav .btn-ghost:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.watch-episode-nav .watch-dialog-title {
+  flex: 1;
+  text-align: center;
+}
+
+/* ─── Watch episode info footer ─────────────────────────────── */
+.watch-episode-info {
+  background: #0d0d0d;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}

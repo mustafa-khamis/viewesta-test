@@ -55,7 +55,7 @@ const Search = () => {
         out.push(s);
       }
     });
-    return out;
+    return out.filter(m => String(m.approval_status).toUpperCase() === 'APPROVED');
   }, [movieResults, seriesResults]);
 
   return (

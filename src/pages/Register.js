@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaGoogle, FaFacebook, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import { generateUsername } from '../utils/usernameUtils';
 import './Register.css';
 
 // here I added the firsname and lastname instead of name to be applicable with the backend 
@@ -47,11 +48,16 @@ const Register = () => {
     }
 
     try {
-      // FIX: send correct backend payload
+      // Automatically generate a unique username from the email
+      const generatedUsername = generateUsername(formData.email);
+      console.log('Registering with generated username:', generatedUsername);
+
+      // FIX: send correct backend payload including username
       const result = await register({
         first_name: formData.firstname,
-  last_name: formData.lastname,
+        last_name: formData.lastname,
         email: formData.email,
+        username: generatedUsername,
         password: formData.password,
         user_type: formData.user_type || 'viewer',
       });
@@ -62,6 +68,7 @@ const Register = () => {
 
         navigate(isFilmmaker ? '/filmmaker-studio' : '/');
       } else {
+        console.error('Registration failed:', result.error);
         setError(result.error || 'Registration failed');
       }
     } catch (err) {

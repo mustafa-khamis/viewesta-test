@@ -18,38 +18,49 @@ export async function getMovies(params = {}) {
   try {
     // NOTE: Backend does not support sort_by/order — omit them to avoid 400
     const queryParams = {};
-    if (params.status) queryParams.status = params.status;
     if (params.category_id) queryParams.category_id = params.category_id;
     if (params.filmmaker_id) queryParams.filmmaker_id = params.filmmaker_id;
     if (params.search) queryParams.search = params.search;
     queryParams.limit = params.limit || 100;
     queryParams.offset = params.offset || 0;
 
-    const response = await client.get('/movies', {
-      params: queryParams,
-    });
+    // Workaround: If no specific status is requested, fetch both approved and pending
+    if (!params.status) {
+      const [resApproved, resPending] = await Promise.all([
+        client.get('/movies', { params: { ...queryParams, status: 'approved' } }).catch(() => ({ data: {} })),
+        client.get('/movies', { params: { ...queryParams, status: 'pending' } }).catch(() => ({ data: {} }))
+      ]);
 
-    if (response.data?.success && response.data?.data) {
-      const data = response.data.data;
-      
-      // Handle response.data.data.movies array
-      if (data.movies && Array.isArray(data.movies)) {
-        return data.movies.map(normalizeMovie);
+      const extractMovies = (res) => {
+        if (res.data?.success && res.data?.data) {
+          const data = res.data.data;
+          if (data.movies && Array.isArray(data.movies)) return data.movies;
+          if (Array.isArray(data)) return data;
+          if (data.items && Array.isArray(data.items)) return data.items;
+        }
+        return [];
+      };
+
+      const combined = [...extractMovies(resApproved), ...extractMovies(resPending)];
+      // Deduplicate
+      const uniqueMovies = Array.from(new Map(combined.map(item => [item.id, item])).values());
+      return uniqueMovies.map(normalizeMovie);
+
+    } else {
+      queryParams.status = params.status;
+      const response = await client.get('/movies', {
+        params: queryParams,
+      });
+
+      if (response.data?.success && response.data?.data) {
+        const data = response.data.data;
+        if (data.movies && Array.isArray(data.movies)) return data.movies.map(normalizeMovie);
+        if (Array.isArray(data)) return data.map(normalizeMovie);
+        if (data.items && Array.isArray(data.items)) return data.items.map(normalizeMovie);
+        return [];
       }
-      
-      // Handle direct array response
-      if (Array.isArray(data)) {
-        return data.map(normalizeMovie);
-      }
-      
-      // Handle data.items array
-      if (data.items && Array.isArray(data.items)) {
-        return data.items.map(normalizeMovie);
-      }
-      
       return [];
     }
-    return [];
   } catch (err) {
     console.error('Failed to fetch movies:', err);
     // Fallback to mock data for development
@@ -402,6 +413,34 @@ export async function createMovie(payload) {
 }
 
 /**
+ * Update an existing movie.
+ * PUT /movies/:id
+ */
+export async function updateMovie(id, payload) {
+  try {
+    const response = await client.put(`/movies/${id}`, payload);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to update movie ${id}:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Delete a movie.
+ * DELETE /movies/:id
+ */
+export async function deleteMovie(id) {
+  try {
+    const response = await client.delete(`/movies/${id}`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to delete movie ${id}:`, err);
+    throw err;
+  }
+}
+
+/**
  * Add a video file to an existing movie.
  * POST /movies/:movieId/video-files
  */
@@ -412,5 +451,66 @@ export async function addMovieVideoFile(movieId, payload) {
   } catch (err) {
     console.error(`Failed to add video file to movie ${movieId}:`, err);
     throw err;
+  }
+}
+
+/**
+ * Rate a movie.
+ * POST /movies/:id/rate
+ */
+export async function rateMovie(id, rating) {
+  try {
+    const response = await client.post(`/movies/${id}/rate`, { rating });
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to rate movie ${id}:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Fetch all video files for a movie.
+ * GET /movies/:movieId/video-files
+ * Returns array of { quality, file_url, duration_seconds, is_processed }
+ */
+export async function getMovieVideoFiles(movieId) {
+  if (!movieId) return [];
+  try {
+    const response = await client.get(`/movies/${movieId}/video-files`);
+    if (response.data?.success && response.data?.data) {
+      const data = response.data.data;
+      // Handle nesting: { data: { movie: { video_files: [...] } } }
+      const inner = data.movie || data.show || data.series || data;
+      
+      if (Array.isArray(inner.video_files)) return inner.video_files;
+      if (Array.isArray(inner.files)) return inner.files;
+      if (Array.isArray(inner)) return inner;
+    }
+    return [];
+  } catch (err) {
+    console.error(`getMovieVideoFiles(${movieId}):`, err?.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch related movies for a given movie.
+ * GET /movies/:movieId/related
+ */
+export async function getRelatedMovies(movieId, limit = 6) {
+  if (!movieId) return [];
+  try {
+    const response = await client.get(`/movies/${movieId}/related`, { params: { limit } });
+    if (response.data?.success && response.data?.data) {
+      const data = response.data.data;
+      const raw = Array.isArray(data.movies) ? data.movies
+        : Array.isArray(data) ? data
+        : Array.isArray(data.items) ? data.items : [];
+      return raw.map(normalizeMovie);
+    }
+    return [];
+  } catch (err) {
+    console.error(`getRelatedMovies(${movieId}):`, err?.message);
+    return [];
   }
 }

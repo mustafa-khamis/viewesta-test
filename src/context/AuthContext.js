@@ -2,10 +2,10 @@
  * Auth context — mock auth (local only). API-ready: swap login/register with apiClient when backend is available.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import * as authService from '../services/authService';
 import { registerUser } from '../utils/apiClient.js';
 import { loginUser } from '../utils/apiClient';
-import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword } from '../utils/apiClient.js';
+import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword, getAvatarUploadUrl, updateUserAvatar } from '../utils/apiClient.js';
+import axios from 'axios';
 
 const AuthContext = createContext();
 const USER_KEY = 'viewesta_user';
@@ -32,7 +32,9 @@ export const AuthProvider = ({ children }) => {
     if (rawUser) {
       const u = {
         ...rawUser,
+        username: rawUser.username || rawUser.user_name || '',
         role: rawUser.user_role || rawUser.role || rawUser.user_type || 'viewer',
+        avatar: rawUser.avatar_url || rawUser.avatar || rawUser.profile_image || rawUser.profile_image_url || '',
         purchasedMovies: rawUser.purchasedMovies || [],
         watchHistory: rawUser.watchHistory || [],
         watchlist: rawUser.watchlist || [],
@@ -84,12 +86,16 @@ const login = async (email, password) => {
   try {
     const res = await loginUser({ email, password });
 
-    // the correct data based on the backend 
-    const user = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
-    const token = res.data?.data?.token || res.data?.token;
+    const resData = res.data;
+    const user = resData?.data?.user || resData?.data || resData?.user || resData;
+    const tokens = resData?.data?.tokens || resData?.tokens || {};
+    const token = tokens.accessToken || tokens.token || resData?.data?.token || resData?.token || resData?.accessToken;
 
     if (token) {
       localStorage.setItem('viewesta_token', token);
+    }
+    if (tokens.refreshToken || resData?.refresh_token) {
+      localStorage.setItem('viewesta_refresh_token', tokens.refreshToken || resData?.refresh_token);
     }
 
     persistUser(user);
@@ -117,18 +123,24 @@ const register = async (data) => {
   try {
     const res = await registerUser(data);
 
-    // the correct data based on the backend response 
-    const user = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
-    const token = res.data?.data?.token || res.data?.token;
+    const resData = res.data;
+    const user = resData?.data?.user || resData?.data || resData?.user || resData;
+    const tokens = resData?.data?.tokens || resData?.tokens || {};
+    const token = tokens.accessToken || tokens.token || resData?.data?.token || resData?.token || resData?.accessToken;
 
     if (token) {
       localStorage.setItem('viewesta_token', token);
     }
+    if (tokens.refreshToken || resData?.refresh_token) {
+      localStorage.setItem('viewesta_refresh_token', tokens.refreshToken || resData?.refresh_token);
+    }
 
     persistUser(user);
+    console.log('Registration successful:', user);
 
     return { success: true, user };
   } catch (err) {
+    console.error('Registration API error:', err);
     return {
       success: false,
       error: err.message,
@@ -148,6 +160,7 @@ const register = async (data) => {
     const payload = {
       first_name: updates.first_name || user.first_name || '',
       last_name: updates.last_name || user.last_name || '',
+      // Username is permanent/unique - typically not editable by the user via profile update
     };
     
     // Optimistic UI update
@@ -177,6 +190,55 @@ const register = async (data) => {
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message || 'Failed to change password' };
+    }
+  };
+
+  const uploadAvatar = async (file) => {
+    if (!user) return { success: false, error: 'Not logged in' };
+    
+    try {
+      // 1. Get presigned URL
+      const contentType = file.type || 'image/jpeg';
+      const fileName = file.name || `avatar-${Date.now()}.jpg`;
+      const fileSize = file.size || 0;
+      
+      const uploadUrlRes = await getAvatarUploadUrl({ 
+        content_type: contentType, 
+        file_name: fileName,
+        file_size: fileSize
+      });
+      
+      const resData = uploadUrlRes.data?.data || uploadUrlRes.data || {};
+      const innerData = resData.upload || resData; // Handle nested 'upload' object
+      
+      const uploadUrl = innerData.upload_url || innerData.uploadUrl || innerData.url;
+      const key = innerData.s3_key || innerData.object_key || innerData.key || innerData.objectKey;
+      const assetUrl = innerData.asset_url || innerData.assetUrl;
+      
+      if (!uploadUrl) {
+        throw new Error('Failed to get upload URL');
+      }
+
+      // 2. Upload to S3 directly
+      await axios.put(uploadUrl, file, {
+        headers: { 'Content-Type': contentType }
+      });
+
+      // 3. Update profile with the new avatar key
+      // The backend expects 'asset_url' according to Postman
+      const updateRes = await updateUserAvatar({ 
+        asset_url: assetUrl || key,
+        avatar_url: assetUrl || key,
+        avatar: key
+      });
+      const backendUser = updateRes.data?.data?.user || updateRes.data?.data || updateRes.data || {};
+      
+      const updated = { ...user, ...backendUser };
+      persistUser(updated);
+
+      return { success: true, user: updated };
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to upload avatar' };
     }
   };
 
@@ -211,6 +273,7 @@ const register = async (data) => {
     socialLogin: async () => ({ success: false, error: 'Social login is not available yet.' }),
     logout,
     updateProfile,
+    uploadAvatar,
     changePassword,
     updateWallet,
     purchaseMovie,

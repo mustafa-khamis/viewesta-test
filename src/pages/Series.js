@@ -63,7 +63,9 @@ const Series = () => {
 
   /* ── Client-side filter + sort ────────────────────────────────────────────── */
   const filteredAndSorted = useMemo(() => {
-    let list = [...series];
+    // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+    // TODO: restore approval_status === 'APPROVED' before production
+    let list = series.filter(s => true /* String(s.approval_status).toUpperCase() === 'APPROVED' */);
     const trendingParam = searchParams.get('trending') === 'true';
 
     // Trending filter

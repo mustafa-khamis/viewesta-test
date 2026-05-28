@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useMovies } from '../../context/MovieContext';
 import { useLocale } from '../../context/LocaleContext';
+import { getFilmmakerMovies } from '../../services/movieService';
 import { FaFilm, FaDollarSign, FaPlus, FaFileContract, FaCheckCircle, FaExclamationCircle, FaTimesCircle } from 'react-icons/fa';
 import './FilmmakerDashboard.css';
 
@@ -11,29 +11,49 @@ import './FilmmakerDashboard.css';
  */
 function FilmmakerDashboard() {
   const { user } = useAuth();
-  const { getMovieById } = useMovies();
   const { t } = useLocale();
 
-  const myMovieIds = user?.myMovieIds || user?.myMovies || [];
-  const myMovies = myMovieIds.map((id) => getMovieById(id)).filter(Boolean);
+  const [movieCount, setMovieCount] = useState(0);
+  const [loadingMovies, setLoadingMovies] = useState(true);
+
   const earnings = user?.earnings || { total: 0, pending: 0, currency: 'USD' };
 
-  // Mock Contract Data — from backend it should map to these 3 statuses
-  const contract = {
-    startDate: new Date('2025-01-01'),
-    endDate: new Date('2026-01-01'),
-    status: 'valid', // valid, terminated, expired
+  useEffect(() => {
+    const fetchMovies = async () => {
+      setLoadingMovies(true);
+      try {
+        const movies = await getFilmmakerMovies();
+        setMovieCount(movies?.length || 0);
+      } catch (err) {
+        console.error('Error fetching filmmaker movies for dashboard:', err);
+      } finally {
+        setLoadingMovies(false);
+      }
+    };
+
+    if (user) {
+      fetchMovies();
+    }
+  }, [user]);
+
+  // Try to use contract data from the backend user profile, otherwise show 'No Contract'
+  const contract = user?.contract || {
+    startDate: null,
+    endDate: null,
+    status: 'none', // valid, terminated, expired, none
   };
 
   const getContractStatus = () => {
     switch (contract.status) {
       case 'expired':
-        return { label: t('contractExpired'), color: 'red', icon: <FaExclamationCircle /> };
+        return { label: t('contractExpired') || 'Expired', color: 'red', icon: <FaExclamationCircle /> };
       case 'terminated':
-        return { label: t('contractTerminated'), color: 'red', icon: <FaTimesCircle /> };
+        return { label: t('contractTerminated') || 'Terminated', color: 'red', icon: <FaTimesCircle /> };
       case 'valid':
+        return { label: t('contractValid') || 'Valid', color: 'green', icon: <FaCheckCircle /> };
+      case 'none':
       default:
-        return { label: t('contractValid'), color: 'green', icon: <FaCheckCircle /> };
+        return { label: t('noContract') || 'No Contract Found', color: 'gray', icon: <FaExclamationCircle /> };
     }
   };
 
@@ -57,16 +77,16 @@ function FilmmakerDashboard() {
         </div>
         <div className="contract-dates">
           <div className="date-item">
-            <span className="date-label">{t('contractStartDate')}</span>
-            <span className="date-value">{contract.startDate.toLocaleDateString()}</span>
+            <span className="date-label">{t('contractStartDate') || 'Start Date'}</span>
+            <span className="date-value">{contract.startDate ? new Date(contract.startDate).toLocaleDateString() : '—'}</span>
           </div>
           <div className="date-item">
-            <span className="date-label">{t('contractEndDate')}</span>
-            <span className="date-value">{contract.endDate.toLocaleDateString()}</span>
+            <span className="date-label">{t('contractEndDate') || 'End Date'}</span>
+            <span className="date-value">{contract.endDate ? new Date(contract.endDate).toLocaleDateString() : '—'}</span>
           </div>
           <div className="date-item">
-             <span className="date-label">{t('contractDuration')}</span>
-             <span className="date-value">1 Year</span>
+             <span className="date-label">{t('contractDuration') || 'Duration'}</span>
+             <span className="date-value">{contract.startDate && contract.endDate ? '1 Year' : '—'}</span>
           </div>
         </div>
       </div>
@@ -75,7 +95,7 @@ function FilmmakerDashboard() {
         <div className="stat-card">
           <FaFilm className="stat-icon" />
           <div>
-            <span className="stat-value">{myMovies.length}</span>
+            <span className="stat-value">{loadingMovies ? '...' : movieCount}</span>
             <span className="stat-label">{t('myStudio')}</span>
           </div>
           <Link to="/filmmaker-studio/movies" className="stat-link">{t('seeAll')}</Link>
@@ -101,3 +121,4 @@ function FilmmakerDashboard() {
 }
 
 export default FilmmakerDashboard;
+

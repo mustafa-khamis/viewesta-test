@@ -23,7 +23,7 @@ import './Profile.css';
 const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?background=D06224&color=fff&size=128&name=';
 
 const Profile = () => {
-  const { user, updateProfile, changePassword, loading } = useAuth();
+  const { user, updateProfile, changePassword, loading, uploadAvatar } = useAuth();
   const { watchlist, getMovieById } = useMovies();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -43,6 +43,7 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [avatarFile, setAvatarFile] = useState(null);
   const fileRef = useRef(null);
 
   const watchlistMovies = watchlist.map((id) => getMovieById(id)).filter(Boolean);
@@ -73,6 +74,7 @@ const Profile = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setSaveError('');
+    setAvatarFile(null);
   };
 
   const handleAvatarUrlChange = (e) => {
@@ -83,10 +85,11 @@ const Profile = () => {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       setAvatarPreview(ev.target.result);
-      setEditAvatarUrl(ev.target.result);
+      setEditAvatarUrl('');
     };
     reader.readAsDataURL(file);
   };
@@ -98,13 +101,24 @@ const Profile = () => {
     }
     setSaving(true);
     setSaveError('');
+    
+    let avatarSuccess = true;
+    let currentAvatar = editAvatarUrl || avatarSrc;
+
+    if (avatarFile) {
+      const avatarRes = await uploadAvatar(avatarFile);
+      if (avatarRes.success) {
+        currentAvatar = avatarRes.user?.avatar || currentAvatar;
+      } else {
+        avatarSuccess = false;
+        setSaveError(avatarRes.error || 'Failed to upload avatar.');
+      }
+    }
+
     const updates = {
       first_name: editFirstName.trim(),
       last_name: editLastName.trim(),
-
-      // bio: editBio.trim(), // BIO DISABLED
-
-      avatar: editAvatarUrl || avatarSrc,
+      avatar: currentAvatar,
       preferences: { quality: qualityPref, notifications: notifPref },
     };
     const result = await updateProfile(updates);
@@ -119,9 +133,10 @@ const Profile = () => {
     }
 
     setSaving(false);
-    if (result.success && pwSuccess) {
+    if (result.success && pwSuccess && avatarSuccess) {
       setSaveSuccess(true);
       setIsEditing(false);
+      setAvatarFile(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } else if (!result.success) {
       setSaveError(result.error || 'Failed to save changes.');
@@ -219,17 +234,19 @@ const Profile = () => {
                   </div>
                 </div>
 
-
-
                 <div className="edit-field">
-                  <label>Avatar URL</label>
+                  <label>Username (Permanent)</label>
                   <input
                     className="profile-edit-input"
-                    value={editAvatarUrl}
-                    onChange={handleAvatarUrlChange}
-                    placeholder="https://..."
+                    value={`@${user.username}`}
+                    disabled
+                    style={{ opacity: 0.7, cursor: 'not-allowed' }}
                   />
                 </div>
+
+
+
+
 
                 <div className="edit-row">
                   <div className="edit-field">
@@ -289,6 +306,8 @@ const Profile = () => {
                 <h1 className="profile-name">
                   {user.first_name} {user.last_name}
                 </h1>
+
+                <p className="profile-username">@{user.username}</p>
 
                 <p className="profile-email">{user.email}</p>
 

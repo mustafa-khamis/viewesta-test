@@ -4,7 +4,7 @@ import { FaPlay, FaHeart, FaStar, FaClock, FaCalendar, FaShareAlt } from 'react-
 import { useMovies } from '../context/MovieContext';
 import { useAuth } from '../context/AuthContext';
 import * as movieService from '../services/movieService';
-import { MOCK_FILMMAKERS_BY_ID } from '../services/mockData/users';
+// MOCK_FILMMAKERS_BY_ID removed — filmmaker data comes from API
 import MovieCard from '../components/MovieCard';
 import AgeRatingBadge from '../components/AgeRatingBadge';
 import CastCrewSection from '../components/CastCrewSection';
@@ -25,13 +25,18 @@ const MovieDetail = () => {
   const [detailLoading, setDetailLoading] = useState(!getMovieById(id));
   const [detailError, setDetailError] = useState('');
   const userRating = movie ? getUserRating(movie.id) : undefined;
-  const filmmaker = movie?.filmmakerId ? MOCK_FILMMAKERS_BY_ID[movie.filmmakerId] : null;
+  // Filmmaker info fetched from movie.raw when available
+  const filmmaker = null; // TODO: fetch from GET /filmmakers/:id when endpoint available
+  const [relatedMovies, setRelatedMovies] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({ title: '', description: '', status: '' });
 
   useEffect(() => {
     setMovie(getMovieById(id));
   }, [getMovieById, id]);
 
-  // TODO: Replace with API GET /movies/:id when backend is ready
+  // TEMPORARY: Approval filter removed for testing — show ALL content regardless of status
+  // TODO: Restore approval check before production: check approval_status === 'APPROVED'
   const fetchMovieDetail = useCallback(async () => {
     if (!id) return;
     setDetailLoading(true);
@@ -52,6 +57,35 @@ const MovieDetail = () => {
       fetchMovieDetail();
     }
   }, [movie, fetchMovieDetail]);
+
+  // Fetch related movies from real backend API
+  useEffect(() => {
+    if (!movie?.id) return;
+    let active = true;
+    (async () => {
+      try {
+        const related = await movieService.getRelatedMovies(movie.id, 6);
+        if (active) {
+          // If API returns empty, fall back to context-based genre matching
+          if (related.length > 0) {
+            setRelatedMovies(related);
+          } else {
+            const fallback = movies
+              .filter((m) => m.id !== movie.id && m.genres?.some((g) => movie.genres?.includes(g)))
+              .slice(0, 6);
+            setRelatedMovies(fallback);
+          }
+        }
+      } catch {
+        // Fallback to context on error
+        const fallback = movies
+          .filter((m) => m.id !== movie.id && m.genres?.some((g) => movie.genres?.includes(g)))
+          .slice(0, 6);
+        if (active) setRelatedMovies(fallback);
+      }
+    })();
+    return () => { active = false; };
+  }, [movie?.id, movie?.genres, movies]);
 
   const getTrailerSrc = () => {
     if (!movie) return '';
@@ -87,12 +121,45 @@ const MovieDetail = () => {
     }
   }, [movie, watchlist]);
 
+  const handleDeleteMovie = async () => {
+    if (window.confirm("Are you sure you want to delete this movie? This action cannot be undone.")) {
+      try {
+        await movieService.deleteMovie(movie.id);
+        alert("Movie deleted successfully.");
+        navigate('/filmmaker-studio/movies');
+      } catch (err) {
+        alert("Failed to delete movie.");
+      }
+    }
+  };
+
+  const handleEditClick = () => {
+    setEditFormData({
+      title: movie.title || '',
+      description: movie.raw?.description || movie.description || '',
+      status: movie.raw?.status || movie.status || 'pending',
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await movieService.updateMovie(movie.id, editFormData);
+      alert("Movie updated successfully.");
+      setIsEditing(false);
+      fetchMovieDetail(); // Refresh
+    } catch (err) {
+      alert("Failed to update movie.");
+    }
+  };
+
   if (detailLoading && !movie) {
     return (
       <div className="movie-detail loading-state">
         <div className="loading" />
         <p>Loading movie...</p>
-      </div>
+        </div>
     );
   }
 
@@ -126,29 +193,37 @@ const MovieDetail = () => {
   }
 
   const handleWatch = () => {
-    if (user) {
-      const hasAccess = user.subscription?.active || (user.purchasedMovies || []).includes(movie.id);
-      if (hasAccess) {
-        navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`);
-      } else {
-        setSelectedQuality(''); // Show Subscribe option first in modal
-        setShowPurchaseModal(true);
-      }
-    } else {
+    if (!user) {
       navigate('/login');
+      return;
     }
+
+    // Filmmakers should ALWAYS be able to watch THEIR OWN uploaded movies
+    // without payment flow, subscription requirement, or unlock modal.
+    const isFilmmaker = String(user.id) === String(movie.filmmakerId || movie.raw?.filmmaker_id);
+    
+    if (isFilmmaker) {
+      // Filmmaker bypass: navigate directly to Watch.js
+      sessionStorage.setItem(`playback_auth_${movie.id}`, 'true');
+      navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality || '1080p')}`);
+      return;
+    }
+
+    // For all other users, show the unlock modal (intermediate step)
+    setShowPurchaseModal(true);
   };
 
   const handlePurchase = () => {
     if (user) {
-      const price = movie.price?.[selectedQuality] ?? 0;
-      const result = purchaseMovie(movie.id, price);
-      if (result.success) {
-        setShowPurchaseModal(false);
-        navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`);
-      } else {
-        alert(result.error);
-      }
+      // TODO: Replace mock payment success with real backend payment verification.
+      // TODO: We should care about the backend response later!
+      // TODO: Integrate real purchase ownership validation here.
+      // MOCK: This simulates a successful payment flow without relying on local wallet state.
+      
+      setShowPurchaseModal(false);
+      // TODO: Temporary frontend-only playback authorization marker. Replace with backend DRM token.
+      sessionStorage.setItem(`playback_auth_${movie.id}`, 'true');
+      navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`);
     }
   };
 
@@ -224,13 +299,7 @@ const MovieDetail = () => {
     return images;
   };
 
-  // Get related movies (same genres, excluding current movie)
-  const getRelatedMovies = () => {
-    if (!movie) return [];
-    return movies
-      .filter(m => m.id !== movie.id && m.genres.some(genre => movie.genres.includes(genre)))
-      .slice(0, 6);
-  };
+  // Related movies are now fetched via API useEffect above
 
   const handleShare = () => {
     if (navigator.share) {
@@ -408,16 +477,69 @@ const MovieDetail = () => {
       )}
 
       {/* Related Movies Section */}
-      {getRelatedMovies().length > 0 && (
+      {relatedMovies.length > 0 && (
         <div className="related-movies-section">
           <div className="related-movies-container">
             <h2 className="related-movies-title">More Like This</h2>
             <div className="related-movies-grid">
-              {getRelatedMovies().map((relatedMovie) => (
+              {relatedMovies.map((relatedMovie) => (
                 <MovieCard key={relatedMovie.id} movie={relatedMovie} />
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Filmmaker Controls (Edit / Delete) */}
+      {user && movie && String(user.id) === String(movie.filmmakerId || movie.raw?.filmmaker_id) && (
+        <div className="filmmaker-controls-section" style={{ margin: '2rem auto', padding: '2rem', background: 'var(--card-bg)', borderRadius: 'var(--radius)', maxWidth: '1200px' }}>
+          <h2 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Filmmaker Controls</h2>
+          {!isEditing ? (
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={handleEditClick} className="btn btn-secondary">Edit Movie</button>
+              <button onClick={handleDeleteMovie} className="btn btn-outline" style={{ color: '#ff4d4f', borderColor: '#ff4d4f' }}>Delete Movie</button>
+            </div>
+          ) : (
+            <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontWeight: '500' }}>Title</label>
+                <input 
+                  type="text" 
+                  value={editFormData.title} 
+                  onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+                  required
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--input-bg)', color: '#fff', border: '1px solid var(--border)', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontWeight: '500' }}>Description</label>
+                <textarea 
+                  value={editFormData.description} 
+                  onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                  required
+                  rows="5"
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--input-bg)', color: '#fff', border: '1px solid var(--border)', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontWeight: '500' }}>Status</label>
+                <select 
+                  value={editFormData.status} 
+                  onChange={(e) => setEditFormData({...editFormData, status: e.target.value})}
+                  style={{ width: '100%', padding: '0.75rem', background: 'var(--input-bg)', color: '#fff', border: '1px solid var(--border)', borderRadius: '4px' }}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="draft">Draft</option>
+                </select>
+                <small style={{ color: 'var(--text-secondary)' }}>Note: Status changes may require admin review depending on platform policies.</small>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button type="submit" className="btn btn-primary">Save Changes</button>
+                <button type="button" onClick={() => setIsEditing(false)} className="btn btn-ghost">Cancel</button>
+              </div>
+            </form>
+          )}
         </div>
       )}
 
@@ -496,7 +618,7 @@ const MovieDetail = () => {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => navigate('/subscription')}
+                    onClick={() => navigate(`/subscription?return_to=${encodeURIComponent(`/watch/${movie.id}?q=${selectedQuality || '1080p'}`)}&movie_id=${movie.id}`)}
                   >
                     View Plans
                   </button>

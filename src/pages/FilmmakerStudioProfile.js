@@ -4,9 +4,10 @@
  * Fields: first_name, last_name, bio, studio_name, avatar (passed through
  *         and stored locally; backend accepts first_name + last_name confirmed).
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getFilmmakerMovies } from '../services/movieService';
 import {
   FaCamera, FaSave, FaTimes, FaEdit,
   FaFilm, FaUsers, FaDollarSign, FaCheckCircle,
@@ -19,7 +20,7 @@ const DEFAULT_AVATAR =
   'https://ui-avatars.com/api/?background=D06224&color=fff&size=128&name=';
 
 export default function FilmmakerStudioProfile() {
-  const { user, updateProfile, changePassword, logout, loading } = useAuth();
+  const { user, updateProfile, changePassword, logout, loading, uploadAvatar } = useAuth();
   const navigate = useNavigate();
   const fileRef = useRef(null);
 
@@ -36,6 +37,27 @@ export default function FilmmakerStudioProfile() {
   const [saving, setSaving]         = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError]     = useState('');
+  const [avatarFile, setAvatarFile]   = useState(null);
+
+  const [movieCount, setMovieCount] = useState(0);
+  const [loadingCount, setLoadingCount] = useState(true);
+
+  /* ── Fetch actual movie count ── */
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const movies = await getFilmmakerMovies();
+        setMovieCount(movies?.length || 0);
+      } catch (err) {
+        console.error('Failed to fetch movie count for studio profile:', err);
+      } finally {
+        setLoadingCount(false);
+      }
+    };
+    if (user) {
+      fetchCount();
+    }
+  }, [user]);
 
   /* ── derived values ── */
   const displayName =
@@ -47,7 +69,7 @@ export default function FilmmakerStudioProfile() {
     user?.avatar ||
     `${DEFAULT_AVATAR}${encodeURIComponent(displayName)}`;
 
-  const totalMovies    = user?.myMovies?.length ?? user?.myMovieIds?.length ?? 0;
+  const totalMovies    = loadingCount ? '...' : movieCount;
   const followersCount = user?.followersCount ?? user?.followers_count ?? 0;
   const totalEarnings  = Number(user?.earnings?.total ?? user?.total_earnings ?? 0);
   const earningsCurrency = user?.earnings?.currency ?? 'USD';
@@ -68,15 +90,17 @@ export default function FilmmakerStudioProfile() {
   const handleCancel = () => {
     setIsEditing(false);
     setSaveError('');
+    setAvatarFile(null);
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
       setAvatarPreview(ev.target.result);
-      setEditAvatarUrl(ev.target.result);
+      setEditAvatarUrl('');
     };
     reader.readAsDataURL(file);
   };
@@ -88,11 +112,20 @@ export default function FilmmakerStudioProfile() {
     }
     setSaving(true);
     setSaveError('');
+    
+    let avatarSuccess = true;
+    if (avatarFile) {
+      const avatarRes = await uploadAvatar(avatarFile);
+      if (!avatarRes.success) {
+        avatarSuccess = false;
+        setSaveError(avatarRes.error || 'Failed to upload avatar.');
+      }
+    }
 
     const updates = {
       first_name: editFirstName.trim(),
       last_name:  editLastName.trim(),
-      avatar:     editAvatarUrl || avatarSrc,
+      avatar:     avatarFile ? user?.avatar : (editAvatarUrl || avatarSrc),
     };
 
     const result = await updateProfile(updates);
@@ -108,9 +141,10 @@ export default function FilmmakerStudioProfile() {
 
     setSaving(false);
 
-    if (result.success && pwSuccess) {
+    if (result.success && pwSuccess && avatarSuccess) {
       setSaveSuccess(true);
       setIsEditing(false);
+      setAvatarFile(null);
       setTimeout(() => setSaveSuccess(false), 3500);
     } else if (!result.success) {
       setSaveError(result.error || 'Failed to save changes.');
@@ -213,17 +247,16 @@ export default function FilmmakerStudioProfile() {
               </div>
 
               <div className="fsp-edit-field">
-                <label>Avatar URL</label>
+                <label>Username (Permanent)</label>
                 <input
                   className="fsp-input"
-                  value={editAvatarUrl}
-                  onChange={(e) => {
-                    setEditAvatarUrl(e.target.value);
-                    setAvatarPreview(e.target.value);
-                  }}
-                  placeholder="https://…"
+                  value={`@${user.username}`}
+                  disabled
+                  style={{ opacity: 0.7, cursor: 'not-allowed' }}
                 />
               </div>
+
+
 
               <div className="fsp-edit-row">
                 <div className="fsp-edit-field">
@@ -272,6 +305,7 @@ export default function FilmmakerStudioProfile() {
             /* ── Display Mode ── */
             <>
               <h1 className="fsp-name">{displayName}</h1>
+              <p className="fsp-username">@{user.username}</p>
               {(user?.studio_name || user?.studioName) && (
                 <p className="fsp-studio">{user.studio_name || user.studioName}</p>
               )}
@@ -359,3 +393,4 @@ export default function FilmmakerStudioProfile() {
     </div>
   );
 }
+

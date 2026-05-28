@@ -53,7 +53,9 @@
 .fu-media-type-btn { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1rem 1.5rem; border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(255,255,255,0.03); cursor: pointer; transition: all 0.2s; min-width: 120px; }
 .fu-media-type-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); }
 .fu-media-type-btn.active { border-color: var(--color-accent, #e50914); background: rgba(229,9,20,0.08); }
-.fu-media-type-icon { font-size: 1.5rem; }
+.fu-media-type-icon { font-size: 1.5rem; color: var(--color-text-secondary, #94a3b8); transition: color 0.2s; }
+.fu-media-type-btn:hover .fu-media-type-icon { color: var(--color-text-primary, #f1f5f9); }
+.fu-media-type-btn.active .fu-media-type-icon { color: var(--color-accent, #e50914); }
 .fu-media-type-label { font-size: 0.85rem; font-weight: 700; color: var(--color-text-primary, #f1f5f9); }
 .fu-media-type-hint { font-size: 0.65rem; color: var(--color-text-secondary, #94a3b8); }
 

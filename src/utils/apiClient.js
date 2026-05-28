@@ -102,4 +102,10 @@ export const updateUserProfile = (data) =>
 export const changePassword = (data) =>
   post('/auth/change-password', data);
 
+export const getAvatarUploadUrl = (data) =>
+  post('/auth/profile/avatar/upload-url', data);
+
+export const updateUserAvatar = (data) =>
+  put('/auth/profile/avatar', data);
+
 export default apiClient;

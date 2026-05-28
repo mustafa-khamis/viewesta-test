@@ -88,7 +88,7 @@ function FilmmakerMyMovies() {
                 <Link to={`/filmmaker-studio/edit/${movie.id}`} className="action-btn edit" title="Edit Metadata">
                   <FaEdit /> Edit
                 </Link>
-                <Link to={`/watch/${movie.id}`} className="action-btn view" title="View Public Page">
+                <Link to={movie.type === 'Series' ? `/series/${movie.id}` : `/movie/${movie.id}`} className="action-btn view" title="View Public Page">
                   <FaEye /> View
                 </Link>
               </div>

@@ -185,6 +185,13 @@
   line-height: 1.2;
 }
 
+.fsp-username {
+  color: #D06224;
+  font-size: 15px;
+  font-weight: 600;
+  margin: -2px 0 6px 0;
+}
+
 .fsp-studio {
   font-size: 14px;
   font-weight: 600;

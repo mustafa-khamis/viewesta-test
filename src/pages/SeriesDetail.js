@@ -1,40 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  FaPlay,
-  FaHeart,
-  FaStar,
-  FaClock,
-  FaCalendar,
-  FaShareAlt,
-  FaChevronDown,
-  FaChevronUp,
+  FaPlay, FaHeart, FaStar, FaClock, FaCalendar,
+  FaShareAlt, FaChevronDown, FaChevronUp, FaArrowLeft, FaArrowRight,
 } from 'react-icons/fa';
 import { useMovies } from '../context/MovieContext';
 import { useAuth } from '../context/AuthContext';
 import * as seriesService from '../services/seriesService';
+import { getEpisodeVideoFiles, buildSourcesMap, pickBestSource } from '../services/videoService';
 import MovieCard from '../components/MovieCard';
 import CastCrewSection from '../components/CastCrewSection';
 import MovieGallery from '../components/MovieGallery';
 import AgeRatingBadge from '../components/AgeRatingBadge';
+import VideoPlayer from '../components/VideoPlayer';
 import './SeriesDetail.css';
-
-// Royalty-free sample videos (Google public bucket — always available)
-const SAMPLE_VIDEOS = [
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-];
-
-const pickVideo = (seed, offset = 0) => {
-  const hash = String(seed).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  return SAMPLE_VIDEOS[(hash + offset) % SAMPLE_VIDEOS.length];
-};
 
 const SeriesDetail = () => {
   const { id } = useParams();
@@ -42,22 +21,29 @@ const SeriesDetail = () => {
   const { addToWatchlist, removeFromWatchlist, watchlist, rateContent, getUserRating } = useMovies();
   const episodesRef = useRef(null);
   const { user } = useAuth();
+
   const [isInWatchlist, setIsInWatchlist] = useState(false);
-  const [isTrailerOpen, setIsTrailerOpen] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
   const [expandedSeason, setExpandedSeason] = useState(1);
   const [seriesData, setSeriesData] = useState(null);
   const [relatedSeries, setRelatedSeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [isWatchVideoOpen, setIsWatchVideoOpen] = useState(false);
+  // Episode player state
+  const [watchEpisode, setWatchEpisode] = useState(null); // { season, episode, seasonIdx, episodeIdx }
+  const [episodeSources, setEpisodeSources] = useState({});
+  const [episodeSourcesLoading, setEpisodeSourcesLoading] = useState(false);
 
+  // ─── Fetch series data ──────────────────────────────────────────────────────
   const fetchSeriesDetail = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     setError('');
     try {
       const normalized = await seriesService.getSeriesById(id);
+      // TEMPORARY: Approval filter removed for testing — show ALL content regardless of status
+      // TODO: Restore approval check before production
       setSeriesData(normalized || null);
       if (normalized?.seasons?.[0]) {
         setExpandedSeason(normalized.seasons[0].seasonNumber ?? 1);
@@ -72,8 +58,10 @@ const SeriesDetail = () => {
 
   useEffect(() => {
     fetchSeriesDetail();
-  }, [fetchSeriesDetail]);
+    if (id) seriesService.viewShow(id).catch(() => {});
+  }, [fetchSeriesDetail, id]);
 
+  // ─── Fetch related series ─────────────────────────────────────────────────
   useEffect(() => {
     if (!seriesData) return;
     let active = true;
@@ -83,36 +71,104 @@ const SeriesDetail = () => {
         if (!active) return;
         const filtered = list
           .filter((item) => item.id !== seriesData.id)
-          .filter((item) =>
-            item.genres?.some((genre) => seriesData.genres?.includes(genre))
-          )
+          .filter((item) => item.genres?.some((g) => seriesData.genres?.includes(g)))
           .slice(0, 6);
         setRelatedSeries(filtered);
-      } catch (err) {
-        console.error('Failed to load related series', err);
-      }
+      } catch {}
     })();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [seriesData]);
 
+  // ─── Watchlist state ──────────────────────────────────────────────────────
   useEffect(() => {
     if (seriesData && watchlist) {
       setIsInWatchlist(watchlist.includes(seriesData.id));
     }
   }, [seriesData, watchlist]);
 
-  const getTrailerSrc = () => {
-    if (!seriesData) return '';
-    return pickVideo(seriesData.id, 0);
+  // ─── Fetch episode video files when episode selected ──────────────────────
+  useEffect(() => {
+    if (!watchEpisode) {
+      setEpisodeSources({});
+      return;
+    }
+    let active = true;
+    (async () => {
+      setEpisodeSourcesLoading(true);
+      setEpisodeSources({});
+      console.log(`[SeriesDetail] Fetching dynamic signed URLs for episode ${watchEpisode.episode.id}...`);
+      try {
+        const files = await getEpisodeVideoFiles(watchEpisode.episode.id);
+        if (active) {
+          setEpisodeSources(buildSourcesMap(files));
+          console.log(`[SeriesDetail] Successfully fetched signed URLs.`);
+        }
+      } catch (err) {
+        console.error('[SeriesDetail] Error fetching signed URLs:', err);
+      } finally { 
+        if (active) setEpisodeSourcesLoading(false); 
+      }
+    })();
+    return () => { 
+      active = false;
+      setEpisodeSources({}); // Cleanup on unmount or episode change
+    };
+  }, [watchEpisode?.episode?.id]);
+
+  const handleRefreshSource = useCallback(() => {
+    if (!watchEpisode) return;
+    console.log('[SeriesDetail] Refreshing signed URLs due to expiration or playback error...');
+    (async () => {
+      try {
+        const files = await getEpisodeVideoFiles(watchEpisode.episode.id);
+        setEpisodeSources(buildSourcesMap(files));
+        console.log('[SeriesDetail] Refreshed signed URLs successfully.');
+      } catch (err) {
+        console.error('[SeriesDetail] Failed to refresh signed URLs:', err);
+      }
+    })();
+  }, [watchEpisode?.episode?.id]);
+
+  // ─── Episode navigation helpers ───────────────────────────────────────────
+  const getAllEpisodes = () => {
+    if (!seriesData) return [];
+    const result = [];
+    for (const season of seriesData.seasons || []) {
+      for (const ep of season.episodes || []) {
+        result.push({ season, episode: ep });
+      }
+    }
+    return result;
   };
 
-  const getWatchVideoSrc = () => {
-    if (!seriesData) return '';
-    return pickVideo(seriesData.id, 3);
+  const getCurrentEpisodeIndex = () => {
+    if (!watchEpisode) return -1;
+    const all = getAllEpisodes();
+    return all.findIndex(
+      (e) => e.season.seasonNumber === watchEpisode.season.seasonNumber &&
+             e.episode.episodeNumber === watchEpisode.episode.episodeNumber
+    );
   };
 
+  const goToEpisode = (idx) => {
+    const all = getAllEpisodes();
+    if (idx >= 0 && idx < all.length) {
+      const { season, episode } = all[idx];
+      setWatchEpisode({ season, episode });
+    }
+  };
+
+  const handleWatchEpisode = (season, episode) => {
+    setWatchEpisode({ season, episode });
+  };
+
+  const handleAutoplayNext = () => {
+    const idx = getCurrentEpisodeIndex();
+    if (idx >= 0) goToEpisode(idx + 1);
+    else setWatchEpisode(null);
+  };
+
+  // ─── Loading / error states ───────────────────────────────────────────────
   if (loading && !seriesData) {
     return (
       <div className="series-detail loading-state">
@@ -128,12 +184,8 @@ const SeriesDetail = () => {
         <h2>Unable to load this series</h2>
         <p>{error}</p>
         <div className="error-actions">
-          <button onClick={fetchSeriesDetail} className="btn btn-primary">
-            Try Again
-          </button>
-          <button onClick={() => navigate('/series')} className="btn btn-outline">
-            Browse Series
-          </button>
+          <button onClick={fetchSeriesDetail} className="btn btn-primary">Try Again</button>
+          <button onClick={() => navigate('/series')} className="btn btn-outline">Browse Series</button>
         </div>
       </div>
     );
@@ -144,49 +196,42 @@ const SeriesDetail = () => {
       <div className="series-not-found">
         <h2>Series not found</h2>
         <p>The series you're looking for doesn't exist.</p>
-        <button onClick={() => navigate('/')} className="btn btn-primary">
-          Go Home
-        </button>
+        <button onClick={() => navigate('/')} className="btn btn-primary">Go Home</button>
       </div>
     );
   }
 
-  const handleWatchEpisode = (_seasonNumber, _episodeNumber) => {
-    setIsWatchVideoOpen(true);
-  };
-
   const handleStartWatching = () => {
-    if (episodesRef.current) {
-      episodesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (episodesRef.current) episodesRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleWatchlistToggle = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
+    if (!user) { navigate('/login'); return; }
+    try {
+      if (isInWatchlist) await seriesService.unsaveShow(seriesData.id);
+      else await seriesService.saveShow(seriesData.id);
+    } catch {}
     if (isInWatchlist) {
       const result = await removeFromWatchlist(seriesData.id);
-      if (result?.success) {
-        setIsInWatchlist(false);
-      }
+      if (result?.success) setIsInWatchlist(false);
     } else {
       const result = await addToWatchlist(seriesData.id);
-      if (result?.success) {
-        setIsInWatchlist(true);
-      }
+      if (result?.success) setIsInWatchlist(true);
     }
+  };
+
+  const handleLikeToggle = async () => {
+    if (!user) { navigate('/login'); return; }
+    setIsLiked(!isLiked);
+    try {
+      if (isLiked) await seriesService.unlikeShow(seriesData.id);
+      else await seriesService.likeShow(seriesData.id);
+    } catch { setIsLiked(isLiked); }
   };
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
-        title: seriesData.title,
-        text: `Check out ${seriesData.title} on Viewesta`,
-        url: window.location.href,
-      });
+      navigator.share({ title: seriesData.title, text: `Check out ${seriesData.title} on Viewesta`, url: window.location.href });
     } else {
       navigator.clipboard.writeText(window.location.href);
       alert('Link copied to clipboard!');
@@ -194,146 +239,76 @@ const SeriesDetail = () => {
   };
 
   const userRating = seriesData ? getUserRating(seriesData.id) : undefined;
-  const totalEpisodes = (seriesData?.seasons || []).reduce((sum, s) => sum + (s.episodes?.length || 0), 0);
+  const totalEpisodes = (seriesData?.seasons || []).reduce((s, x) => s + (x.episodes?.length || 0), 0);
 
   const handleRate = (stars) => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    if (!user) { navigate('/login'); return; }
     rateContent(seriesData.id, stars);
   };
 
   const buildGallery = (s) => {
     if (!s) return [];
-    if (s.gallery && s.gallery.length > 0) return s.gallery;
-    const themeMap = {
-      Drama:    ['photo-1528360983277-13d401cdc186', 'photo-1517457373958-b7bdd4587205'],
-      Comedy:   ['photo-1527529482837-4698179dc6ce', 'photo-1492684223066-81342ee5ff30'],
-      Romance:  ['photo-1522673607200-164d1b6ce486', 'photo-1464366400600-7168b8af9bc3'],
-      Crime:    ['photo-1477959858617-67f85cf4f1df', 'photo-1444723121867-7a241cacace9'],
-      Thriller: ['photo-1518331647614-7a1f04cd34cf', 'photo-1542204165-65bf26472b9b'],
-      Action:   ['photo-1547153760-18fc86324498', 'photo-1552319454-0f07c07fc399'],
-      Family:   ['photo-1529156069898-49953e39b3ac', 'photo-1543269664-56d93c1b41a6'],
-      Fantasy:  ['photo-1518709268805-4e9042af9f23', 'photo-1502691876148-a84978e59af8'],
-      Music:    ['photo-1511671782779-c97d3d27a1d4', 'photo-1506157786151-b8491531f063'],
-    };
-    const genres = s.genres || [];
-    const seen = new Set();
-    const extraImages = [];
-    for (const genre of genres) {
-      const ids = themeMap[genre] || [];
-      for (const id of ids) {
-        if (!seen.has(id)) {
-          seen.add(id);
-          extraImages.push({
-            url: `https://images.unsplash.com/${id}?w=900&h=500&fit=crop&auto=format`,
-            caption: `${s.title} — ${genre} scene`
-          });
-        }
-      }
-      if (extraImages.length >= 4) break;
-    }
+    if (s.gallery?.length > 0) return s.gallery;
     const images = [];
-    const coverUrl = s.cover || s.backdrop;
-    if (coverUrl) images.push({ url: coverUrl, caption: `${s.title} — Featured` });
+    if (s.cover || s.backdrop) images.push({ url: s.cover || s.backdrop, caption: `${s.title} — Featured` });
     if (s.poster) images.push({ url: s.poster, caption: `${s.title} — Poster` });
-    images.push(...extraImages);
     return images;
   };
+
+  const epIdx = getCurrentEpisodeIndex();
+  const allEps = getAllEpisodes();
+  const hasPrev = epIdx > 0;
+  const hasNext = epIdx >= 0 && epIdx < allEps.length - 1;
+  const episodeVideoSrc = pickBestSource(episodeSources);
 
   return (
     <div className="series-detail">
       {error && (
         <div className="series-detail-alert">
           <span>{error}</span>
-          <button className="btn btn-ghost btn-small" onClick={fetchSeriesDetail}>
-            Retry
-          </button>
+          <button className="btn btn-ghost btn-small" onClick={fetchSeriesDetail}>Retry</button>
         </div>
       )}
 
+      {/* Hero */}
       <div className="series-hero">
         <div className="series-backdrop">
           <img src={seriesData.backdrop} alt={seriesData.title} />
-          <div className="backdrop-overlay"></div>
+          <div className="backdrop-overlay" />
         </div>
-
         <div className="series-hero-content">
           <div className="series-poster">
             <img src={seriesData.poster} alt={seriesData.title} />
           </div>
-
           <div className="series-info">
             <h1 className="series-title">{seriesData.title}</h1>
-
             <div className="detail-badges">
-              <button onClick={() => setIsTrailerOpen(true)} className="badge badge-ghost">
-                <FaPlay />
-                Watch
-              </button>
-
               {seriesData.age_rating && (
                 <div className="series-age-rating">
                   <AgeRatingBadge rating={seriesData.age_rating} size="sm" showTooltip />
                 </div>
               )}
             </div>
-
             <div className="series-meta">
-              <div className="series-rating">
-                <FaStar className="star-icon" />
-                <span>{seriesData.rating}</span>
-              </div>
-              <div className="series-year">
-                <FaCalendar />
-                <span>{seriesData.year}</span>
-              </div>
+              <div className="series-rating"><FaStar className="star-icon" /><span>{seriesData.rating}</span></div>
+              <div className="series-year"><FaCalendar /><span>{seriesData.year}</span></div>
               <div className="series-seasons">
-                <span>
-                  {seriesData.seasons.length} Season{seriesData.seasons.length !== 1 ? 's' : ''}
-                </span>
+                <span>{seriesData.seasons.length} Season{seriesData.seasons.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
-
-            {/* Genre Badges */}
-            {seriesData.genres && seriesData.genres.length > 0 && (
+            {seriesData.genres?.length > 0 && (
               <div className="series-genres">
-                {seriesData.genres.map((g) => (
-                  <span key={g} className="genre-badge">{g}</span>
-                ))}
+                {seriesData.genres.map((g) => <span key={g} className="genre-badge">{g}</span>)}
               </div>
             )}
-
             <p className="series-description">{seriesData.description}</p>
-
             <div className="series-details">
-              <div className="detail-item">
-                <strong>Creator:</strong> {seriesData.director || seriesData.creator || 'Unknown'}
-              </div>
-              <div className="detail-item">
-                <strong>Cast:</strong>{' '}
-                {Array.isArray(seriesData.cast) ? seriesData.cast.join(', ') : '—'}
-              </div>
-              <div className="detail-item">
-                <strong>Premiered:</strong> {seriesData.raw?.release_date || seriesData.year || '—'}
-              </div>
-              <div className="detail-item">
-                <strong>Seasons:</strong> {seriesData.seasons?.length || '—'}
-              </div>
-              {totalEpisodes > 0 && (
-                <div className="detail-item">
-                  <strong>Episodes:</strong> {totalEpisodes}
-                </div>
-              )}
-              <div className="detail-item">
-                <strong>Language:</strong> English
-              </div>
-              <div className="detail-item">
-                <strong>Country:</strong> Nigeria
-              </div>
+              <div className="detail-item"><strong>Creator:</strong> {seriesData.director || seriesData.creator || 'Unknown'}</div>
+              <div className="detail-item"><strong>Cast:</strong> {Array.isArray(seriesData.cast) ? seriesData.cast.join(', ') : '—'}</div>
+              <div className="detail-item"><strong>Premiered:</strong> {seriesData.raw?.release_date || seriesData.year || '—'}</div>
+              <div className="detail-item"><strong>Seasons:</strong> {seriesData.seasons?.length || '—'}</div>
+              {totalEpisodes > 0 && <div className="detail-item"><strong>Episodes:</strong> {totalEpisodes}</div>}
             </div>
-
             <div className="detail-your-rating">
               <span className="detail-your-rating-label">Your rating:</span>
               <div className="detail-stars" role="group" aria-label="Rate this series">
@@ -343,42 +318,39 @@ const SeriesDetail = () => {
                     type="button"
                     className={`detail-star-btn ${userRating >= star ? 'filled' : ''}`}
                     onClick={() => handleRate(star)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleRate(star)}
                     aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}
                   >
                     <FaStar />
                   </button>
                 ))}
               </div>
-              {userRating != null && (
-                <span className="detail-your-rating-value">{userRating}/5</span>
-              )}
+              {userRating != null && <span className="detail-your-rating-value">{userRating}/5</span>}
             </div>
-
             <div className="series-actions">
               <button onClick={handleStartWatching} className="btn btn-primary">
-                <FaPlay />
-                Start Watching
+                <FaPlay /> Start Watching
               </button>
               {user && (
-                <button
-                  onClick={handleWatchlistToggle}
-                  className={`btn btn-secondary ${isInWatchlist ? 'active' : ''}`}
-                >
-                  <FaHeart />
-                  {isInWatchlist ? 'In Wishlist' : 'Add to Wishlist'}
+                <button onClick={handleWatchlistToggle} className={`btn btn-secondary ${isInWatchlist ? 'active' : ''}`}>
+                  <FaHeart /> {isInWatchlist ? 'In Wishlist' : 'Add to Wishlist'}
+                </button>
+              )}
+              {user && (
+                <button onClick={handleLikeToggle} className={`btn btn-secondary ${isLiked ? 'active' : ''}`}>
+                  <FaHeart style={{ color: isLiked ? '#ff4081' : 'inherit' }} />
+                  {isLiked ? 'Liked' : 'Like'}
                 </button>
               )}
               <button onClick={handleShare} className="btn btn-secondary">
-                <FaShareAlt />
-                Share
+                <FaShareAlt /> Share
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {seriesData.cast_crew && seriesData.cast_crew.length > 0 && (
+      {/* Cast */}
+      {seriesData.cast_crew?.length > 0 && (
         <div className="series-cast-section">
           <div className="series-cast-container">
             <CastCrewSection castCrew={seriesData.cast_crew} />
@@ -386,32 +358,25 @@ const SeriesDetail = () => {
         </div>
       )}
 
-      {/* Gallery Section */}
-      {seriesData && (
-        <div className="series-gallery-section">
-          <div className="series-gallery-container">
-            <MovieGallery images={buildGallery(seriesData)} title={seriesData.title} />
-          </div>
+      {/* Gallery */}
+      <div className="series-gallery-section">
+        <div className="series-gallery-container">
+          <MovieGallery images={buildGallery(seriesData)} title={seriesData.title} />
         </div>
-      )}
+      </div>
 
+      {/* Episodes */}
       <div className="seasons-section" ref={episodesRef} id="episodes">
         <div className="seasons-container">
           <h2 className="seasons-title">Episodes</h2>
-
           {(!seriesData.seasons || seriesData.seasons.length === 0) && (
             <p className="seasons-empty">Episodes will appear here once they are published.</p>
           )}
-
           {(seriesData.seasons || []).map((season) => (
             <div key={season.seasonNumber} className="season-container">
               <div
                 className="season-header"
-                onClick={() =>
-                  setExpandedSeason(
-                    expandedSeason === season.seasonNumber ? null : season.seasonNumber
-                  )
-                }
+                onClick={() => setExpandedSeason(expandedSeason === season.seasonNumber ? null : season.seasonNumber)}
               >
                 <div className="season-info">
                   <h3 className="season-title">{season.title}</h3>
@@ -421,28 +386,25 @@ const SeriesDetail = () => {
                   {expandedSeason === season.seasonNumber ? <FaChevronUp /> : <FaChevronDown />}
                 </div>
               </div>
-
               {expandedSeason === season.seasonNumber && (
                 <div className="episodes-list">
                   {season.episodes.map((episode) => (
-                    <div key={episode.episodeNumber} className="episode-item">
+                    <div key={episode.id || episode.episodeNumber} className="episode-item">
                       <div className="episode-number">{episode.episodeNumber}</div>
                       <div className="episode-content">
                         <div className="episode-header">
                           <div className="episode-title-row">
                             <h4 className="episode-title">{episode.title}</h4>
-                            <span className="episode-duration">
-                              <FaClock />
-                              {episode.duration}m
-                            </span>
+                            <span className="episode-duration"><FaClock />{episode.duration}m</span>
                           </div>
                         </div>
                         <p className="episode-description">{episode.description}</p>
                       </div>
                       <div className="episode-actions">
                         <button
-                          onClick={() => handleWatchEpisode(season.seasonNumber, episode.episodeNumber)}
+                          onClick={() => handleWatchEpisode(season, episode)}
                           className="btn btn-primary btn-small"
+                          aria-label={`Play ${episode.title}`}
                         >
                           <FaPlay />
                         </button>
@@ -456,6 +418,7 @@ const SeriesDetail = () => {
         </div>
       </div>
 
+      {/* Related */}
       {relatedSeries.length > 0 && (
         <div className="related-series-section">
           <div className="related-series-container">
@@ -469,40 +432,67 @@ const SeriesDetail = () => {
         </div>
       )}
 
-      {isTrailerOpen && (
-        <div className="modal-overlay trailer-modal" onClick={() => setIsTrailerOpen(false)}>
-          <div className="trailer-dialog" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setIsTrailerOpen(false)}>
-              ×
-            </button>
-            <div className="trailer-frame-wrap">
-              <video
-                key={getTrailerSrc()}
-                src={getTrailerSrc()}
-                autoPlay
-                controls
-                className="trailer-video-player"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isWatchVideoOpen && (
-        <div className="modal-overlay watch-modal" onClick={() => setIsWatchVideoOpen(false)}>
+      {/* Episode Watch Modal */}
+      {watchEpisode && (
+        <div className="modal-overlay watch-modal" onClick={() => setWatchEpisode(null)}>
           <div className="watch-dialog" onClick={(e) => e.stopPropagation()}>
+            {/* Header with navigation */}
             <div className="watch-dialog-header">
-              <span className="watch-dialog-title">{seriesData.title} — S1 E1</span>
-              <button className="modal-close" onClick={() => setIsWatchVideoOpen(false)}>×</button>
+              <div className="watch-episode-nav">
+                <button
+                  className="btn btn-ghost btn-small"
+                  onClick={() => goToEpisode(epIdx - 1)}
+                  disabled={!hasPrev}
+                  aria-label="Previous episode"
+                >
+                  <FaArrowLeft />
+                </button>
+                <span className="watch-dialog-title">
+                  {seriesData.title} — S{watchEpisode.season.seasonNumber} E{watchEpisode.episode.episodeNumber}: {watchEpisode.episode.title}
+                </span>
+                <button
+                  className="btn btn-ghost btn-small"
+                  onClick={() => goToEpisode(epIdx + 1)}
+                  disabled={!hasNext}
+                  aria-label="Next episode"
+                >
+                  <FaArrowRight />
+                </button>
+              </div>
+              <button className="modal-close" onClick={() => setWatchEpisode(null)}>×</button>
             </div>
-            <div className="watch-frame-wrap">
-              <video
-                key={getWatchVideoSrc()}
-                src={getWatchVideoSrc()}
-                autoPlay
-                controls
-                className="watch-video-player"
-              />
+
+            {episodeSourcesLoading ? (
+              <div className="watch-frame-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, background: '#111' }}>
+                <div className="loading" />
+              </div>
+            ) : (
+              <div className="watch-frame-wrap">
+                <VideoPlayer
+                  src={episodeVideoSrc || ''}
+                  sources={episodeSources}
+                  title={`S${watchEpisode.season.seasonNumber} E${watchEpisode.episode.episodeNumber}: ${watchEpisode.episode.title}`}
+                  poster={seriesData.backdrop || seriesData.poster}
+                  onRequestRefresh={handleRefreshSource}
+                  onEnded={handleAutoplayNext}
+                />
+              </div>
+            )}
+
+            <div className="watch-episode-info">
+              <p style={{ margin: '8px 16px', color: '#aaa', fontSize: 14 }}>
+                {watchEpisode.episode.description}
+              </p>
+              {hasNext && (
+                <div style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button className="btn btn-primary btn-small" onClick={() => goToEpisode(epIdx + 1)}>
+                    <FaArrowRight /> Next Episode
+                  </button>
+                  <span style={{ color: '#666', fontSize: 12 }}>
+                    {allEps[epIdx + 1]?.episode?.title}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,21 +1,26 @@
 /**
- * Auth service — mock implementation (local only).
- * TODO: Replace with apiClient calls: POST /auth/login, POST /auth/register, GET /auth/me when backend is ready.
+ * Auth service — real backend integration.
  */
 
-import { MOCK_USERS_BY_EMAIL, MOCK_VIEWER } from './mockData/users';
+import apiClient from '../utils/apiClient';
 
-const delay = (ms = 350) => new Promise((r) => setTimeout(r, ms));
-
-function normalizeUser(raw) {
+/**
+ * Normalizes user data from the backend to the frontend format.
+ */
+export function normalizeUser(raw) {
   if (!raw) return null;
+  
+  // Use backend first_name/last_name or full name if available
   const name = raw.name || [raw.first_name, raw.last_name].filter(Boolean).join(' ') || raw.email || 'Viewesta User';
+  
   return {
     ...raw,
     name,
+    username: raw.username || raw.user_name || '',
     avatar:
-      raw.avatar ||
+      raw.avatar_url || raw.avatar || raw.profile_image ||
       `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=D06224&color=fff`,
+    role: raw.user_role || raw.role || raw.user_type || 'viewer',
     subscription: {
       type: raw.subscription?.type || 'none',
       active: raw.subscription?.active ?? false,
@@ -32,7 +37,6 @@ function normalizeUser(raw) {
       notifications: raw.preferences?.notifications ?? true,
       ...raw.preferences,
     },
-    role: raw.role || raw.user_type || 'viewer',
     purchasedMovies: raw.purchasedMovies || [],
     watchHistory: raw.watchHistory || [],
     watchlist: raw.watchlist || [],
@@ -41,61 +45,43 @@ function normalizeUser(raw) {
 }
 
 /**
- * Mock login — accepts any email/password; demo users: viewer@viewesta.com / viewer123, filmmaker@viewesta.com / filmmaker123
- * TODO: POST /auth/login -> { token, user }
+ * Login via real backend.
  */
 export async function login(email, password) {
-  await delay();
-  const key = (email || '').toLowerCase().trim();
-  const record = MOCK_USERS_BY_EMAIL[key];
-  if (record && record.password === password) {
-    return { success: true, user: normalizeUser(record.user) };
+  try {
+    const res = await apiClient.post('/auth/login', { email, password });
+    const data = res.data?.data || res.data;
+    return { success: true, user: normalizeUser(data.user || data), tokens: data.tokens || data };
+  } catch (err) {
+    console.error('Login failed:', err);
+    return { success: false, error: err.message || 'Login failed' };
   }
-  // Allow any login for demo: create a viewer with this email
-  return {
-    success: true,
-    user: normalizeUser({
-      ...MOCK_VIEWER,
-      id: `demo-${Date.now()}`,
-      email: key || 'guest@viewesta.com',
-      name: key ? key.split('@')[0] : 'Guest',
-      role: 'viewer',
-      user_type: 'viewer',
-    }),
-  };
 }
 
 /**
- * Mock register — creates a local user with the given role.
- * TODO: POST /auth/register -> { token, user }
+ * Register via real backend.
  */
-export async function register({ email, password, name, user_type }) {
-  await delay();
-  const role = user_type === 'filmmaker' ? 'filmmaker' : 'viewer';
-  const user = normalizeUser({
-    id: `user-${Date.now()}`,
-    email: (email || '').trim().toLowerCase(),
-    name: (name || '').trim() || email?.split('@')[0] || 'Viewesta User',
-    first_name: (name || '').trim().split(' ')[0] || '',
-    last_name: (name || '').trim().split(' ').slice(1).join(' ') || '',
-    role,
-    user_type: role,
-    subscription: { type: 'none', active: false, expiresAt: null },
-    wallet: { balance: 0, currency: 'USD' },
-    preferences: { quality: '1080p', notifications: true },
-    purchasedMovies: [],
-    watchHistory: [],
-    watchlist: [],
-    followedFilmmakers: [],
-  });
-  return { success: true, user };
+export async function register(userData) {
+  try {
+    const res = await apiClient.post('/auth/register', userData);
+    const data = res.data?.data || res.data;
+    return { success: true, user: normalizeUser(data.user || data), tokens: data.tokens || data };
+  } catch (err) {
+    console.error('Registration failed:', err);
+    return { success: false, error: err.message || 'Registration failed' };
+  }
 }
 
 /**
- * Mock get current user (e.g. from token). Not used in mock flow; session is stored in AuthContext/localStorage.
- * TODO: GET /auth/me with Bearer token
+ * Get current user via real backend.
  */
 export async function getUser() {
-  await delay(100);
-  return null;
+  try {
+    const res = await apiClient.get('/auth/me');
+    const data = res.data?.data || res.data;
+    return normalizeUser(data.user || data);
+  } catch (err) {
+    console.error('Failed to fetch user:', err);
+    return null;
+  }
 }

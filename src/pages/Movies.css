@@ -77,6 +77,12 @@
   text-align: center;
 }
 
+.movie-detail.loading-state{
+  display: flex;
+  justify-content: center;
+  
+}
+
 .movies-inline-error {
   display: flex;
   justify-content: center;

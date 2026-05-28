@@ -1,10 +1,10 @@
 /**
  * Public filmmaker profile — /filmmaker/:id. Bio, avatar, films grid, Follow button.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useMovies } from '../context/MovieContext';
+import { getMovies, getFilmmakerMovies } from '../services/movieService';
 import { MOCK_FILMMAKERS_BY_ID } from '../services/mockData/users';
 import MovieCard from '../components/MovieCard';
 import './FilmmakerPublicProfile.css';
@@ -12,10 +12,36 @@ import './FilmmakerPublicProfile.css';
 export default function FilmmakerPublicProfile() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { getMovieById } = useMovies();
+  
+  const [filmmakerFilms, setFilmmakerFilms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
   const filmmaker = MOCK_FILMMAKERS_BY_ID[id] || null;
-  const myMovieIds = filmmaker?.id === user?.id ? (user?.myMovieIds || []) : ['1', '4', '7'];
-  const filmmakerFilms = myMovieIds.map((mid) => getMovieById(mid)).filter(Boolean);
+
+  useEffect(() => {
+    const fetchFilmmakerContent = async () => {
+      setLoading(true);
+      try {
+        let movies = [];
+        // If viewing own profile, use the specialized filmmaker endpoint
+        if (user && String(user.id) === String(id)) {
+          movies = await getFilmmakerMovies();
+        } else {
+          // Otherwise fetch public movies by this filmmaker
+          movies = await getMovies({ filmmaker_id: id });
+        }
+        setFilmmakerFilms(movies || []);
+      } catch (err) {
+        console.error('Failed to fetch filmmaker movies:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchFilmmakerContent();
+    }
+  }, [id, user]);
 
   if (!filmmaker) {
     return (
@@ -40,14 +66,16 @@ export default function FilmmakerPublicProfile() {
         {filmmaker.bio && <p className="filmmaker-public-bio">{filmmaker.bio}</p>}
         {filmmaker.location && <p className="filmmaker-public-location">{filmmaker.location}</p>}
         <div className="filmmaker-public-stats">
-          <span>{filmmaker.total_films ?? 0} films</span>
+          <span>{loading ? '...' : filmmakerFilms.length} films</span>
           <span>{filmmaker.followersCount ?? 0} followers</span>
         </div>
 
       </div>
       <section className="filmmaker-public-films">
         <h2>Films</h2>
-        {filmmakerFilms.length > 0 ? (
+        {loading ? (
+          <p>Loading films...</p>
+        ) : filmmakerFilms.length > 0 ? (
           <div className="filmmaker-public-grid">
             {filmmakerFilms.map((movie) => (
               <MovieCard key={movie.id} movie={movie} showWatchlist />
@@ -60,3 +88,4 @@ export default function FilmmakerPublicProfile() {
     </div>
   );
 }
+

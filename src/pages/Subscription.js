@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FaCheck, FaCrown, FaStar, FaFilm, FaDownload,
   FaBan, FaHeadset, FaShieldAlt, FaBolt, FaGem, FaSpinner,
@@ -25,6 +26,11 @@ const trustItems = [
 
 const Subscription = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const returnTo = searchParams.get('return_to');
+  const movieId = searchParams.get('movie_id');
 
   const [plans, setPlans]               = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
@@ -60,9 +66,19 @@ const Subscription = () => {
     setSubSuccess('');
     setSubError('');
     try {
+      // TODO: Replace mock payment success with real backend subscription activation response
       await subscribe({ plan_id: planId });
       setSubSuccess(`You're now subscribed to the ${planId} plan!`);
-      setTimeout(() => setSubSuccess(''), 4000);
+      
+      // MOCK: If we arrived here from MovieDetail, simulate success and navigate to Watch.js
+      if (returnTo && movieId) {
+        sessionStorage.setItem(`playback_auth_${movieId}`, 'true');
+        setTimeout(() => {
+          navigate(decodeURIComponent(returnTo));
+        }, 1500); // short delay to show success message
+      } else {
+        setTimeout(() => setSubSuccess(''), 4000);
+      }
     } catch (err) {
       setSubError(
         err?.response?.data?.message ||

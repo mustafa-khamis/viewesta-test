@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import * as movieService from '../services/movieService';
+import * as seriesService from '../services/seriesService';
 import * as watchlistService from '../services/watchlistService';
 import {
   coerceMovieId,
@@ -189,9 +190,11 @@ export const MovieProvider = ({ children }) => {
   const addToFavorites = useCallback((movieId) => mutateFavorites(movieId, 'add'), [mutateFavorites]);
   const removeFromFavorites = useCallback((movieId) => mutateFavorites(movieId, 'remove'), [mutateFavorites]);
 
-  const rateContent = useCallback((contentId, rating) => {
+  const rateContent = useCallback(async (contentId, rating) => {
     const num = Math.min(5, Math.max(1, Number(rating)));
     if (!contentId || Number.isNaN(num)) return;
+    
+    // Optimistic update
     setUserRatings((prev) => {
       const next = { ...prev, [String(contentId)]: num };
       try {
@@ -199,8 +202,19 @@ export const MovieProvider = ({ children }) => {
       } catch {}
       return next;
     });
-    // TODO: API - POST /movies/:id/rate or /series/:id/rate
-  }, []);
+
+    try {
+      // Determine if it's a movie or show by checking our loaded movies catalog
+      const isMovie = movies.some((m) => String(m.id) === String(contentId));
+      if (isMovie) {
+        await movieService.rateMovie(contentId, num);
+      } else {
+        await seriesService.rateShow(contentId, num);
+      }
+    } catch (err) {
+      console.error('Failed to save rating to backend:', err);
+    }
+  }, [movies]);
 
   const getUserRating = useCallback(
     (contentId) => (contentId ? userRatings[String(contentId)] : undefined),

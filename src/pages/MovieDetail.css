@@ -421,7 +421,7 @@
 .quality-options {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -452,8 +452,11 @@
 
 .quality-info {
   display: flex;
+  flex-direction: column;
+  flex: 1;
   justify-content: space-between;
   align-items: center;
+  gap: 0em;
   width: 100%;
 }
 
@@ -873,4 +876,57 @@
   opacity: 0.5;
   cursor: not-allowed;
   filter: grayscale(1);
+}
+/* Unlock Modal Styles */
+.unlock-options-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.unlock-option-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.unlock-option-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+.unlock-option-card.selected {
+  border-color: var(--primary-color);
+  background: rgba(255, 107, 0, 0.05);
+}
+
+.unlock-icon {
+  font-size: 24px;
+}
+
+.unlock-info {
+  flex: 1;
+}
+
+.unlock-info h4 {
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.unlock-info p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.unlock-check {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+  font-weight: bold;
 }

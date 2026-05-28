@@ -38,7 +38,9 @@ const Home = () => {
     heroMovies = mockMovies.slice(0, 5).map(normalizeMovie);
   }
   
-  const heroItems = heroMovies.slice(0, 5).map((movie) => ({
+  // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+  // TODO: restore approval_status === 'APPROVED' before production
+  const heroItems = heroMovies.filter(m => true /* String(m.approval_status).toUpperCase() === 'APPROVED' */).slice(0, 5).map((movie) => ({
     ...movie,
     backdrop: movie.backdrop || movie.poster,
   }));
@@ -47,23 +49,30 @@ const Home = () => {
 
   const trendingSelection = useMemo(() => {
     return trendingMovies
-      .filter((movie) => getMediaType(movie) === activeType)
+      // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+      // TODO: restore approval_status === 'APPROVED' before production
+      .filter((movie) => getMediaType(movie) === activeType /* && String(movie.approval_status).toUpperCase() === 'APPROVED' */)
       .slice(0, maxVisibleItems);
   }, [maxVisibleItems, activeType, trendingMovies]);
 
   const newReleasesSelection = useMemo(() => {
     return newReleases
-      .filter((movie) => getMediaType(movie) === activeType)
+      // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+      // TODO: restore approval_status === 'APPROVED' before production
+      .filter((movie) => getMediaType(movie) === activeType /* && String(movie.approval_status).toUpperCase() === 'APPROVED' */)
       .slice(0, 10);
   }, [activeType, newReleases]);
 
   // Top Rated: strictly from backend average_rating — no fallback, no mock data
   const topRated = useMemo(() => {
     return (topRatedMovies || [])
+      // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+      // TODO: restore approval_status === 'APPROVED' before production
       .filter((movie) =>
         movie.average_rating !== null &&
         movie.average_rating !== undefined &&
-        getMediaType(movie) === activeType
+        getMediaType(movie) === activeType /* &&
+        String(movie.approval_status).toUpperCase() === 'APPROVED' */
       )
       .slice(0, 12);
   }, [topRatedMovies, activeType]);

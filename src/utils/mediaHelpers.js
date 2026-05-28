@@ -96,7 +96,10 @@ export const coerceMovieId = (entry) => {
   return null;
 };
 
-export const normalizeMovie = (rawMovie = {}) => {
+export const normalizeMovie = (input = {}) => {
+  // Handle nested objects from backend (e.g. { movie: {...} } or { show: {...} })
+  const rawMovie = input.movie || input.show || input.series || input;
+
   const releaseDate =
     rawMovie.release_date || rawMovie.released_at || rawMovie.created_at || rawMovie.published_at;
   const releaseYear = extractYear(releaseDate) || rawMovie.year;
@@ -140,6 +143,17 @@ export const normalizeMovie = (rawMovie = {}) => {
   const trailerUrl = rawMovie.trailer_url || rawMovie.trailerUrl || '';
   const approvalStatus = rawMovie.approval_status || rawMovie.approvalStatus || rawMovie.status || '';
 
+  // Standardize the content type
+  let type = rawMovie.type || rawMovie.content_type || rawMovie.media_type || 'Movie';
+  const lowerType = String(type).toLowerCase();
+  if (lowerType === 'series' || lowerType === 'show') {
+    type = 'Series';
+  } else if (lowerType === 'short' || lowerType === 'shortfilm') {
+    type = 'ShortFilm';
+  } else {
+    type = 'Movie';
+  }
+
   return {
     id: ensureString(rawMovie.id),
     title: rawMovie.title || 'Untitled',
@@ -166,13 +180,14 @@ export const normalizeMovie = (rawMovie = {}) => {
     price: normalizePricing(rawMovie.pricing),
     trending: Boolean(rawMovie.trending || rawMovie.is_trending || rawMovie.isTrending),
     featured: Boolean(rawMovie.featured || rawMovie.is_featured || rawMovie.isFeatured),
-    type: rawMovie.type || rawMovie.content_type || rawMovie.media_type || 'Movie',
+    type,
     filmmakerId: rawMovie.filmmakerId || rawMovie.filmmaker_id || null,
     age_rating: ensureString(ageRating),
     cast_crew: castCrew,
     cover: ensureString(cover),
     trailer_url: ensureString(trailerUrl),
     approval_status: ensureString(approvalStatus),
+    status: ensureString(approvalStatus),
     raw: rawMovie,
   };
 };
@@ -185,6 +200,10 @@ const normalizeSeason = (season) => {
     duration: Number(episode?.duration_minutes ?? episode?.duration ?? 0),
     description: episode?.description || episode?.synopsis || 'Episode description coming soon.',
     id: ensureString(episode?.id ?? `${season.season_number}-${index + 1}`),
+    // Video source fields — consumed by VideoPlayer via videoService.getEpisodeVideoFiles()
+    video_url: episode?.video_url || episode?.file_url || episode?.stream_url || episode?.hls_url || '',
+    hls_url: episode?.hls_url || episode?.m3u8_url || '',
+    file_url: episode?.file_url || episode?.video_url || '',
   }));
 
   return {
@@ -196,7 +215,9 @@ const normalizeSeason = (season) => {
   };
 };
 
-export const normalizeSeries = (rawSeries = {}) => {
+export const normalizeSeries = (input = {}) => {
+  const rawSeries = input.movie || input.show || input.series || input;
+
   const normalized = normalizeMovie({
     ...rawSeries,
     type: rawSeries.type || 'Series',

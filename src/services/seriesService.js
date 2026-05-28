@@ -173,3 +173,62 @@ export async function createShow(payload) {
     throw err;
   }
 }
+export async function rateShow(id, rating) {
+  try {
+    const response = await client.post(`/shows/${id}/rate`, { rating });
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to rate show ${id}:`, err);
+    throw err;
+  }
+}
+
+export async function viewShow(id) {
+  try {
+    const response = await client.post(`/shows/${id}/view`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to record view for show ${id}:`, err);
+    throw err;
+  }
+}
+
+export async function saveShow(id) {
+  try {
+    const response = await client.post(`/shows/${id}/save`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to save show ${id}:`, err);
+    throw err;
+  }
+}
+
+export async function unsaveShow(id) {
+  try {
+    const response = await client.delete(`/shows/${id}/save`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to unsave show ${id}:`, err);
+    throw err;
+  }
+}
+
+export async function likeShow(id) {
+  try {
+    const response = await client.post(`/shows/${id}/like`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to like show ${id}:`, err);
+    throw err;
+  }
+}
+
+export async function unlikeShow(id) {
+  try {
+    const response = await client.delete(`/shows/${id}/like`);
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to unlike show ${id}:`, err);
+    throw err;
+  }
+}

@@ -320,7 +320,68 @@
   border: 1px solid #5e1a1a;
   padding: 10px 12px;
   border-radius: 10px;
+  font-size: 14px;
 }
 
+/* Loading overlay */
+.player-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.55);
+  z-index: 20;
+  pointer-events: none;
+}
 
+.player-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Auto-hide controls — default hidden, shown on hover/activity */
+.player-topbar,
+.player-controls-overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.player-topbar.visible,
+.player-controls-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fullscreen mode */
+.video-player.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #000;
+  border-radius: 0;
+}
+
+.video-player.fullscreen .video-wrapper {
+  height: 100%;
+  border-radius: 0;
+}
+
+.video-player.fullscreen .video {
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Watch modal back button */
+.watch-back {
+  margin-bottom: 1rem;
+}

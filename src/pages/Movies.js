@@ -31,7 +31,9 @@ const Movies = () => {
 
   const movieOnly = useMemo(() => {
     const sourceList = trendingParam ? trendingMovies : movies;
-    return sourceList.filter((m) => normalizeType(m) !== 'series');
+    // TEMP TESTING MODE: approval filter disabled temporarily for DRM/video testing
+    // TODO: restore approval_status === 'APPROVED' before production
+    return sourceList.filter((m) => normalizeType(m) !== 'series' /* && String(m.approval_status).toUpperCase() === 'APPROVED' */);
   }, [movies, trendingMovies, trendingParam]);
 
   const years = useMemo(() => {

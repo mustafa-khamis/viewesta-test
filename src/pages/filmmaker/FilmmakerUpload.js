@@ -1,9 +1,9 @@
-﻿import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FaFilm, FaUsers, FaEye, FaCheck, FaArrowLeft, FaArrowRight,
   FaPlus, FaTimes, FaUser, FaExclamationTriangle, FaInfoCircle,
-  FaFileUpload, FaUserShield, FaCloudUploadAlt,
+  FaFileUpload, FaUserShield, FaCloudUploadAlt, FaTv, FaBolt
 } from 'react-icons/fa';
 import { MEDIA_TYPES, SHORT_FILM_THRESHOLD_MINUTES } from '../../types';
 import { useLocale } from '../../context/LocaleContext';
@@ -75,7 +75,7 @@ const FilmmakerUpload = () => {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
-  const [warnings, setWarnings] = useState([]);
+  const warnings = []; // TODO: populate from form validation warnings if needed
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitError, setSubmitError] = useState('');
@@ -495,7 +495,7 @@ const FilmmakerUpload = () => {
                     onClick={() => setField('mediaType', t)}
                   >
                     <span className="fu-media-type-icon">
-                      {t === MEDIA_TYPES.MOVIE ? 'ðŸŽ¬' : t === MEDIA_TYPES.SHORT_FILM ? 'âš¡' : 'ðŸ“º'}
+                      {t === MEDIA_TYPES.MOVIE ? <FaFilm /> : t === MEDIA_TYPES.SHORT_FILM ? <FaBolt /> : <FaTv />}
                     </span>
                     <span className="fu-media-type-label">
                       {t === MEDIA_TYPES.SHORT_FILM ? 'Short Film' : t}
