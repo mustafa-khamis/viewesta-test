@@ -60,7 +60,7 @@ const initialForm = {
   mediaType: MEDIA_TYPES.MOVIE,
   title: '', description: '', director: '', producer: '',
   releaseDate: '', duration: '', language: '', country: '',
-  age_rating: '', genres: [],
+  age_rating: '', genres: [], monetization_type: 'both',
   poster_url: '', poster_file: null,
   cover_url: '', cover_file: null,
   trailer_url: '', trailer_file: null,
@@ -345,6 +345,8 @@ const FilmmakerUpload = () => {
            duration_minutes: parseInt(form.duration) || 120,
            language: form.language || 'English',
            country: form.country || '',
+           // TODO: Ensure backend supports monetization_type in POST /movies payload
+           monetization_type: form.monetization_type,
          };
 
          // Conditionally add optional fields only if valid
@@ -636,6 +638,25 @@ const FilmmakerUpload = () => {
                 ))}
               </div>
               {errors.genres && <p className="fu-error"><FaExclamationTriangle />{errors.genres}</p>}
+            </div>
+
+            {/* Monetization Type */}
+            <div className={`fu-field ${errors.monetization_type ? 'has-error' : ''}`}>
+              <label className="fu-label">Monetization Options <span className="fu-required">*</span></label>
+              <div className="fu-monetization-grid" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" value="pay_per_view" checked={form.monetization_type === 'pay_per_view'} onChange={(e) => setField('monetization_type', e.target.value)} />
+                  Pay Per View only
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" value="subscription" checked={form.monetization_type === 'subscription'} onChange={(e) => setField('monetization_type', e.target.value)} />
+                  Subscription only
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" value="both" checked={form.monetization_type === 'both'} onChange={(e) => setField('monetization_type', e.target.value)} />
+                  Both
+                </label>
+              </div>
             </div>
           </div>
         )}

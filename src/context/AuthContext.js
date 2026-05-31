@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { registerUser } from '../utils/apiClient.js';
 import { loginUser } from '../utils/apiClient';
 import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword, getAvatarUploadUrl, updateUserAvatar } from '../utils/apiClient.js';
+import { getMySubscription } from '../services/subscriptionService.js';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -67,6 +68,20 @@ export const AuthProvider = ({ children }) => {
       }
       const res = await getCurrentUser();
       const fetchedUser = res.data?.data?.user || res.data?.data || res.data?.user || res.data;
+      
+      try {
+        const subRes = await getMySubscription();
+        const subData = subRes?.data?.subscription || subRes?.data || subRes?.subscription || subRes;
+        if (subData) {
+          fetchedUser.subscription = {
+            active: subData.status === 'active' || subData.active === true || subData.is_active === true,
+            ...subData
+          };
+        }
+      } catch (subErr) {
+        console.log('Could not fetch subscription:', subErr.message);
+      }
+
       persistUser(fetchedUser);
     } catch (err) {
       console.log('Auth check failed:', err.message);
@@ -265,6 +280,15 @@ const register = async (data) => {
     return { success: true };
   };
 
+  const updateSubscription = (planId) => {
+    if (!user) return;
+    const updated = {
+      ...user,
+      subscription: { active: true, plan_id: planId }
+    };
+    persistUser(updated);
+  };
+
   const value = {
     user,
     loading,
@@ -277,6 +301,7 @@ const register = async (data) => {
     changePassword,
     updateWallet,
     purchaseMovie,
+    updateSubscription,
     refreshProfile: () => user && persistUser(user),
   };
 

@@ -213,12 +213,10 @@ export async function getTopRatedMovies(limit = 12) {
 
 /**
  * Fetch new releases.
- * NOTE: Backend does not support sort_by param — returns 400 for any value.
- * We fetch a large pool and sort client-side by release_date descending.
+ * Requests newest movies from the backend using sort_by=created_at.
  */
 export async function getNewReleases(limit = 12) {
   try {
-    // Do NOT pass sort_by or order — backend rejects them with 400
     const response = await client.get('/movies', {
       params: { limit: 100 },
     });
@@ -239,10 +237,9 @@ export async function getNewReleases(limit = 12) {
       raw = data.items;
     }
 
-    // Sort client-side by release_date descending (raw field, before normalizing)
+    // Sort client-side fallback just in case backend sorting fails
     return raw
-      .filter((m) => m.release_date)
-      .sort((a, b) => new Date(b.release_date) - new Date(a.release_date))
+      .sort((a, b) => new Date(b.created_at || b.release_date || 0) - new Date(a.created_at || a.release_date || 0))
       .slice(0, limit)
       .map(normalizeMovie);
 

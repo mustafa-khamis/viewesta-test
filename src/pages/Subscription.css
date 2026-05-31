@@ -166,6 +166,17 @@
   letter-spacing: 0.5px;
 }
 
+.discount-badge {
+  background: rgba(208, 98, 36, 0.15);
+  color: #D06224;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .plan-price {
   display: flex;
   align-items: baseline;

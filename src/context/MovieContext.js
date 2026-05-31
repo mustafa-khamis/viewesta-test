@@ -13,6 +13,7 @@ import { useAuth } from './AuthContext';
 import * as movieService from '../services/movieService';
 import * as seriesService from '../services/seriesService';
 import * as watchlistService from '../services/watchlistService';
+import * as paymentService from '../services/paymentService';
 import {
   coerceMovieId,
   coerceArray,
@@ -39,6 +40,7 @@ export const MovieProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [watchlist, setWatchlist] = useState([]);
   const [favorites, setFavorites] = useState([]);
+  const [purchasedMovies, setPurchasedMovies] = useState([]);
   const [isSyncingLists] = useState(false);
   const [userRatings, setUserRatings] = useState(() => {
     try {
@@ -101,6 +103,24 @@ export const MovieProvider = ({ children }) => {
       }
     };
     fetchWatchlist();
+
+    const fetchPurchases = async () => {
+      try {
+        const purchasesData = await paymentService.getPurchases();
+        const items = Array.isArray(purchasesData?.data) ? purchasesData.data : 
+                      (Array.isArray(purchasesData) ? purchasesData : []);
+        // Safely extract movie IDs based on potential structures
+        const ids = items.map(p => String(p.movie_id || p.movieId || p.movie?.id || p.id));
+        setPurchasedMovies(ids);
+      } catch (err) {
+        console.error('Failed to load purchases:', err);
+        // Temporary fallback: use user.purchasedMovies if API fails
+        if (user.purchasedMovies && Array.isArray(user.purchasedMovies)) {
+          setPurchasedMovies(user.purchasedMovies.map(String));
+        }
+      }
+    };
+    fetchPurchases();
 
     const fav = coerceArray(user.favorites || []).map((id) => (typeof id === 'object' ? coerceMovieId(id) : String(id))).filter(Boolean);
     setFavorites(fav);
@@ -252,6 +272,7 @@ export const MovieProvider = ({ children }) => {
       error,
       watchlist,
       favorites,
+      purchasedMovies,
       isSyncingLists,
       userRatings,
       downloads,
@@ -282,6 +303,7 @@ export const MovieProvider = ({ children }) => {
       error,
       watchlist,
       favorites,
+      purchasedMovies,
       isSyncingLists,
       userRatings,
       downloads,

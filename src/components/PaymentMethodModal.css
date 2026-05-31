@@ -1,0 +1,168 @@
+.payment-method-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 0;
+}
+
+.payment-method-modal .pm-amount-display {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.payment-method-modal .pm-amount-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.payment-method-modal .pm-amount-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-top: 0.5rem;
+}
+
+.payment-method-modal .pm-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.payment-method-modal .pm-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.payment-method-modal .pm-option:hover:not(.disabled) {
+  border-color: rgba(229, 9, 20, 0.5); /* var(--primary-color) with opacity */
+  background: rgba(229, 9, 20, 0.05);
+}
+
+.payment-method-modal .pm-option.active {
+  border-color: var(--primary-color);
+  background: rgba(229, 9, 20, 0.1);
+}
+
+.payment-method-modal .pm-option.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.payment-method-modal .pm-option-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.payment-method-modal .pm-option-icon {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.payment-method-modal .pm-option.active .pm-option-icon {
+  color: var(--primary-color);
+  background: rgba(229, 9, 20, 0.2);
+}
+
+.payment-method-modal .pm-option-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.payment-method-modal .pm-option-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.payment-method-modal .pm-option-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.payment-method-modal .pm-coming-soon {
+  font-size: 0.75rem;
+  background: var(--border);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.payment-method-modal .pm-wallet-details {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.payment-method-modal .pm-wallet-balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.payment-method-modal .pm-wallet-balance-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.payment-method-modal .pm-wallet-balance-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.payment-method-modal .pm-wallet-warning {
+  color: #ff4d4f;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.payment-method-modal .pm-wallet-topup-btn {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .payment-method-modal {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+    transform: none;
+    margin: 0;
+    animation: slideUp 0.3s ease-out;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}

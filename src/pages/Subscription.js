@@ -6,12 +6,14 @@ import {
   FaBan, FaHeadset, FaShieldAlt, FaBolt, FaGem, FaSpinner,
 } from 'react-icons/fa';
 import { getSubscriptionPlans, subscribe } from '../services/subscriptionService';
+import { createCardCheckoutSession } from '../services/paymentService';
+import PaymentMethodModal from '../components/PaymentMethodModal';
 import './Subscription.css';
 
 /* ── Static plan display helpers (icons / tags by id / interval) ── */
 const planMeta = {
   monthly: { icon: <FaBolt />, tag: null,       popular: false },
-  yearly:  { icon: <FaGem />,  tag: 'Save 17%', popular: true  },
+  yearly:  { icon: <FaGem />,  tag: 'Save 15%', popular: true  },
   premium: { icon: <FaCrown />,tag: 'Best',      popular: false },
 };
 
@@ -24,8 +26,16 @@ const trustItems = [
   { icon: <FaHeadset />,  title: 'Priority Support',    desc: 'Real humans ready to help whenever you need.' },
 ];
 
+const calculateDiscountedPrice = (price, percentage = 15) => {
+  if (price === null || price === undefined || isNaN(price)) return null;
+  const original = Number(price);
+  if (original <= 0) return original.toFixed(2);
+  const discounted = original * (1 - (percentage / 100));
+  return discounted.toFixed(2);
+};
+
 const Subscription = () => {
-  const { user } = useAuth();
+  const { user, updateSubscription } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
@@ -39,6 +49,10 @@ const Subscription = () => {
   const [subscribing, setSubscribing]   = useState(null);   // planId currently being processed
   const [subSuccess, setSubSuccess]     = useState('');
   const [subError, setSubError]         = useState('');
+
+  /* ── Payment Modal State ── */
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
   /* ── fetch plans ── */
   useEffect(() => {
@@ -60,15 +74,51 @@ const Subscription = () => {
   }, []);
 
   /* ── subscribe handler ── */
-  const handleSubscribe = async (planId) => {
+  const handlePlanSelect = (plan) => {
     if (!user) return;
-    setSubscribing(planId);
+    
+    // Calculate final price for the modal
+    const rawPrice = plan.price ?? plan.amount;
+    const hasPrice = rawPrice !== null && rawPrice !== undefined && !isNaN(rawPrice) && Number(rawPrice) > 0;
+    const discountedPrice = hasPrice ? calculateDiscountedPrice(rawPrice, 15) : 0;
+    
+    setSelectedPlan({
+      ...plan,
+      finalAmount: Number(hasPrice ? discountedPrice : (rawPrice ?? 0))
+    });
+    setPaymentModalOpen(true);
+  };
+
+  const handleConfirmPayment = async (paymentMethod) => {
+    setPaymentModalOpen(false);
+    
+    if (paymentMethod === 'card') {
+      try {
+        setSubscribing(selectedPlan.id);
+        const session = await createCardCheckoutSession({
+          item_type: 'subscription',
+          item_id: selectedPlan.id,
+          amount: selectedPlan.finalAmount,
+          return_url: `${window.location.origin}/subscription-success`
+        });
+        if (session && session.checkout_url) {
+          window.location.href = session.checkout_url;
+        }
+      } catch (err) {
+        setSubError('Failed to initiate card payment. Please try again.');
+        setSubscribing(null);
+      }
+      return;
+    }
+
+    // Proceed with wallet payment
+    setSubscribing(selectedPlan.id);
     setSubSuccess('');
     setSubError('');
     try {
-      // TODO: Replace mock payment success with real backend subscription activation response
-      await subscribe({ plan_id: planId });
-      setSubSuccess(`You're now subscribed to the ${planId} plan!`);
+      await subscribe({ plan_id: selectedPlan.id, payment_method: paymentMethod });
+      updateSubscription(selectedPlan.id);
+      setSubSuccess(`You're now subscribed to the ${selectedPlan.id} plan!`);
       
       // MOCK: If we arrived here from MovieDetail, simulate success and navigate to Watch.js
       if (returnTo && movieId) {
@@ -150,6 +200,11 @@ const Subscription = () => {
               const feats   = Array.isArray(plan.features) ? plan.features : [];
               const isBusy  = subscribing === plan.id;
 
+              const rawPrice = plan.price ?? plan.amount;
+              const hasPrice = rawPrice !== null && rawPrice !== undefined && !isNaN(rawPrice) && Number(rawPrice) > 0;
+              const discountedPrice = hasPrice ? calculateDiscountedPrice(rawPrice, 15) : null;
+              const currencySymbol = plan.currency === 'USD' || !plan.currency ? '$' : '';
+
               return (
                 <div key={plan.id} className={`plan-card ${popular ? 'popular' : ''}`}>
                   {popular && (
@@ -161,15 +216,25 @@ const Subscription = () => {
                   <div className="plan-icon">{icon}</div>
 
                   <div className="plan-header">
-                    <h3 className="plan-name">{plan.name}</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h3 className="plan-name">{plan.name}</h3>
+                      {hasPrice && (
+                        <span className="discount-badge">15% OFF</span>
+                      )}
+                    </div>
                     {tag && <span className="plan-tag">{tag}</span>}
                     <div className="plan-price">
+                      {hasPrice && (
+                        <span className="original-price" style={{ textDecoration: 'line-through', opacity: 0.6, fontSize: '1em', marginRight: '8px' }}>
+                          {currencySymbol}{Number(rawPrice).toFixed(2)}
+                        </span>
+                      )}
                       <span className="price">
-                        {plan.currency === 'USD' || !plan.currency ? '$' : ''}{plan.price ?? plan.amount ?? '—'}
+                        {currencySymbol}{hasPrice ? discountedPrice : (rawPrice ?? '—')}
                       </span>
                       <span className="period">/{plan.interval ?? plan.period ?? 'month'}</span>
                     </div>
-                    {plan.originalPrice && (
+                    {!hasPrice && plan.originalPrice && (
                       <div className="original-price">was ${plan.originalPrice}</div>
                     )}
                   </div>
@@ -187,13 +252,13 @@ const Subscription = () => {
 
                   <button
                     className={`btn ${popular ? 'btn-primary' : 'btn-outline'} btn-full sub-btn`}
-                    onClick={() => handleSubscribe(plan.id)}
-                    disabled={isBusy}
+                    onClick={() => handlePlanSelect(plan)}
+                    disabled={isBusy || (user.subscription?.active && (user.subscription?.plan_id === plan.id || user.subscription?.plan?.id === plan.id))}
                   >
                     {isBusy
                       ? <><FaSpinner className="btn-spinner" /> Processing…</>
                       : user.subscription?.active
-                        ? 'Change Plan'
+                        ? ((user.subscription?.plan_id === plan.id || user.subscription?.plan?.id === plan.id) ? 'Current Plan' : 'Change Plan')
                         : 'Get Started'}
                   </button>
                 </div>
@@ -226,6 +291,14 @@ const Subscription = () => {
         </div>
 
       </div>
+
+      <PaymentMethodModal
+        isOpen={paymentModalOpen}
+        onClose={() => setPaymentModalOpen(false)}
+        onContinue={handleConfirmPayment}
+        amount={selectedPlan?.finalAmount || 0}
+        title={`Subscribe to ${selectedPlan?.name || 'Plan'}`}
+      />
     </div>
   );
 };

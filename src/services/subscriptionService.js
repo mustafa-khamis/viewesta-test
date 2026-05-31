@@ -53,3 +53,12 @@ export async function subscribe({ plan_id, payment_method = 'wallet' }) {
   const { data } = await client.post('/subscriptions/subscribe', { plan_id, payment_method });
   return data;
 }
+
+/**
+ * Fetch the current user's active subscription.
+ * @returns {object} Subscription data
+ */
+export async function getMySubscription() {
+  const { data } = await client.get('/subscriptions/me');
+  return data;
+}
