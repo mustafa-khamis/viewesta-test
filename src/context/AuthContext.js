@@ -190,6 +190,12 @@ const register = async (data) => {
       const backendUser = res.data?.data?.user || res.data?.data || res.data || {};
       const fullySyncedUser = { ...updated, ...backendUser };
       
+      // Protect the newly updated avatar in case the backend response is stale
+      if (updates.avatar) {
+        fullySyncedUser.avatar = updates.avatar;
+        fullySyncedUser.avatar_url = updates.avatar;
+      }
+      
       persistUser(fullySyncedUser);
       return { success: true, user: fullySyncedUser };
     } catch (err) {
@@ -209,49 +215,25 @@ const register = async (data) => {
   };
 
   const uploadAvatar = async (file) => {
-    if (!user) return { success: false, error: 'Not logged in' };
-    
     try {
-      // 1. Get presigned URL
-      const contentType = file.type || 'image/jpeg';
-      const fileName = file.name || `avatar-${Date.now()}.jpg`;
-      const fileSize = file.size || 0;
-      
-      const uploadUrlRes = await getAvatarUploadUrl({ 
-        content_type: contentType, 
-        file_name: fileName,
-        file_size: fileSize
-      });
-      
-      const resData = uploadUrlRes.data?.data || uploadUrlRes.data || {};
-      const innerData = resData.upload || resData; // Handle nested 'upload' object
-      
-      const uploadUrl = innerData.upload_url || innerData.uploadUrl || innerData.url;
-      const key = innerData.s3_key || innerData.object_key || innerData.key || innerData.objectKey;
-      const assetUrl = innerData.asset_url || innerData.assetUrl;
-      
-      if (!uploadUrl) {
-        throw new Error('Failed to get upload URL');
-      }
+      const formData = new FormData();
+      formData.append('avatar', file);
 
-      // 2. Upload to S3 directly
-      await axios.put(uploadUrl, file, {
-        headers: { 'Content-Type': contentType }
+      // Bypass apiClient to prevent Content-Type: application/json overriding FormData boundaries
+      const token = localStorage.getItem('viewesta_token');
+      const updateRes = await axios.put(`${process.env.REACT_APP_API_BASE || 'http://viewesta-api-prod.eba-dwwczxu3.us-east-1.elasticbeanstalk.com'}/api/v1/auth/profile/avatar`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // Do NOT set Content-Type, browser will automatically set it to multipart/form-data with the correct boundary
+        }
       });
-
-      // 3. Update profile with the new avatar key
-      // The backend expects 'asset_url' according to Postman
-      const updateRes = await updateUserAvatar({ 
-        asset_url: assetUrl || key,
-        avatar_url: assetUrl || key,
-        avatar: key
-      });
+      
       const backendUser = updateRes.data?.data?.user || updateRes.data?.data || updateRes.data || {};
       
       const updated = { ...user, ...backendUser };
-      persistUser(updated);
+      const normalizedUser = persistUser(updated);
 
-      return { success: true, user: updated };
+      return { success: true, user: normalizedUser };
     } catch (err) {
       return { success: false, error: err.message || 'Failed to upload avatar' };
     }

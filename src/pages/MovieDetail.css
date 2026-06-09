@@ -930,3 +930,54 @@
   font-size: 1.2rem;
   font-weight: bold;
 }
+
+/* PPV Expiration Styles */
+.ppv-status-banner {
+  margin: 12px 0 16px;
+  display: flex;
+  align-items: center;
+}
+
+.ppv-countdown {
+  background: rgba(74, 222, 128, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ppv-expired-msg {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Success Modal specific tweaks */
+.success-modal-overlay {
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+.success-modal .success-actions .btn {
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 12px 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.success-modal .success-actions .btn:hover {
+  transform: translateY(-2px);
+}
+

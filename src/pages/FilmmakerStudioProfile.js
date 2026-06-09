@@ -114,9 +114,13 @@ export default function FilmmakerStudioProfile() {
     setSaveError('');
     
     let avatarSuccess = true;
+    let currentAvatar = editAvatarUrl || avatarSrc;
+
     if (avatarFile) {
       const avatarRes = await uploadAvatar(avatarFile);
-      if (!avatarRes.success) {
+      if (avatarRes.success) {
+        currentAvatar = avatarRes.user?.avatar || currentAvatar;
+      } else {
         avatarSuccess = false;
         setSaveError(avatarRes.error || 'Failed to upload avatar.');
       }
@@ -125,7 +129,7 @@ export default function FilmmakerStudioProfile() {
     const updates = {
       first_name: editFirstName.trim(),
       last_name:  editLastName.trim(),
-      avatar:     avatarFile ? user?.avatar : (editAvatarUrl || avatarSrc),
+      avatar:     currentAvatar,
     };
 
     const result = await updateProfile(updates);

@@ -3,91 +3,42 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { getFilmmakerMovies } from '../services/movieService';
+import { getContract, getPayoutBalance, getPayouts } from '../services/earningsService';
 import './EarningsDetail.css';
 
-// ─── Revenue constants ─────────────────────────────────────────────────────────
-const FILMMAKER_SHARE = 0.70;   // 70%
-const PLATFORM_SHARE  = 0.30;   // 30%
-const ESTIMATED_RATE_PER_VIEW = 0.025; // $0.025 per view — baseline estimate
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function calcFilmEarnings(movie) {
-  const views = Number(movie?.raw?.view_count ?? movie?.raw?.views ?? movie?.raw?.total_views ?? 0);
-  const baseRevenue = views * ESTIMATED_RATE_PER_VIEW;
-  const filmmakerEarnings = baseRevenue * FILMMAKER_SHARE;
-  const platformFee = baseRevenue * PLATFORM_SHARE;
-  return { views, baseRevenue, filmmakerEarnings, platformFee };
-}
-
-function getMonthBuckets(movies, count = 6) {
-  const now = new Date();
-  const buckets = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({
-      label: d.toLocaleString('default', { month: 'short', year: '2-digit' }),
-      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      earnings: 0,
-    });
-  }
-
-  for (const movie of movies) {
-    const createdAt = movie?.raw?.created_at || movie?.raw?.published_at;
-    if (!createdAt) continue;
-    const mDate = new Date(createdAt);
-    const mKey = `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`;
-    const bucket = buckets.find((b) => b.key === mKey);
-    if (bucket) {
-      const { filmmakerEarnings } = calcFilmEarnings(movie);
-      bucket.earnings += filmmakerEarnings;
-    }
-  }
-  return buckets;
-}
-
 function fmt(amount, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount || 0);
+  if (amount === undefined || amount === null) return null;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
 }
 
-// ─── Sparkline SVG ─────────────────────────────────────────────────────────────
-function Sparkline({ data, width = 200, height = 48, color = '#e50914' }) {
-  if (!data || data.length < 2) return null;
-  const values = data.map((d) => d.earnings);
-  const max = Math.max(...values, 0.01);
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - (v / max) * height;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} style={{ overflow: 'visible' }}>
-      <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {values.map((v, i) => {
-        const x = (i / (values.length - 1)) * width;
-        const y = height - (v / max) * height;
-        return <circle key={i} cx={x} cy={y} r="3" fill={color} />;
-      })}
-    </svg>
-  );
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────────
 export default function EarningsDetail() {
   const { user } = useAuth();
   const { t } = useLocale();
 
   const [movies, setMovies] = useState([]);
+  const [contract, setContract] = useState(null);
+  const [balance, setBalance] = useState(null);
+  const [payouts, setPayouts] = useState([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'per-film' | 'monthly'
-  const [currency] = useState(user?.wallet?.currency || 'USD');
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const fetchMovies = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await getFilmmakerMovies();
-      setMovies(data || []);
+      const [moviesData, contractData, balanceData, payoutsData] = await Promise.all([
+        getFilmmakerMovies(),
+        getContract(),
+        getPayoutBalance(),
+        getPayouts(),
+      ]);
+
+      setMovies(moviesData || []);
+      setContract(contractData);
+      setBalance(balanceData);
+      setPayouts(payoutsData || []);
     } catch (err) {
       setError('Unable to load your earnings data. Please try again.');
     } finally {
@@ -95,25 +46,29 @@ export default function EarningsDetail() {
     }
   }, []);
 
-  useEffect(() => { fetchMovies(); }, [fetchMovies]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ─── Computed totals ────────────────────────────────────────────────────────
-  const filmBreakdown = movies.map((m) => ({
-    movie: m,
-    ...calcFilmEarnings(m),
-  })).sort((a, b) => b.filmmakerEarnings - a.filmmakerEarnings);
+  const currency = contract?.currency || balance?.currency || user?.wallet?.currency || 'USD';
 
-  const totalRevenue = filmBreakdown.reduce((s, r) => s + r.baseRevenue, 0);
-  const totalEarnings = filmBreakdown.reduce((s, r) => s + r.filmmakerEarnings, 0);
-  const totalPlatformFee = filmBreakdown.reduce((s, r) => s + r.platformFee, 0);
-  const totalViews = filmBreakdown.reduce((s, r) => s + r.views, 0);
+  const hasSplit = contract?.filmmaker_split !== undefined || contract?.split_percentage !== undefined;
+  const filmmakerSplitPct = contract?.filmmaker_split || contract?.split_percentage; 
+  const platformSplitPct = filmmakerSplitPct ? (100 - filmmakerSplitPct) : null;
 
-  const monthlyBuckets = getMonthBuckets(movies, 6);
-  const maxMonthEarnings = Math.max(...monthlyBuckets.map((b) => b.earnings), 0.01);
+  const totalEarnings = balance?.total_earnings;
+  const totalRevenue = balance?.total_revenue;
+
+  const totalViews = movies.reduce((acc, m) => {
+    const v = Number(m?.raw?.view_count ?? m?.raw?.views ?? m?.raw?.total_views ?? 0);
+    return acc + v;
+  }, 0);
+
+  const mgAmount = contract?.minimum_guarantee;
+  const hasMG = mgAmount !== undefined && mgAmount !== null;
+  const mgRecouped = balance?.mg_recouped;
+  const mgRemaining = balance?.mg_remaining;
 
   return (
     <div className="earnings-page layout-container">
-      {/* Breadcrumb */}
       <div className="earnings-breadcrumb">
         <Link to="/filmmaker-studio" className="btn btn-ghost btn-small">
           ← {t('dashboard') || 'Dashboard'}
@@ -125,22 +80,6 @@ export default function EarningsDetail() {
         <p className="earnings-subtitle">Revenue from your published content on Viewesta</p>
       </div>
 
-      {/* Revenue split card */}
-      <div className="earnings-split-card">
-        <div className="earnings-split-label">Revenue Split</div>
-        <div className="earnings-split-bar">
-          <div className="earnings-split-filmmaker" style={{ width: '70%' }}>
-            <span>You — 70%</span>
-          </div>
-          <div className="earnings-split-platform" style={{ width: '30%' }}>
-            <span>Platform — 30%</span>
-          </div>
-        </div>
-        <p className="earnings-split-note">
-          For every $1 generated by your content, you receive <strong>$0.70</strong> and Viewesta retains <strong>$0.30</strong>.
-        </p>
-      </div>
-
       {loading ? (
         <div className="earnings-loading">
           {[1, 2, 3].map((i) => <div key={i} className="earnings-skeleton" />)}
@@ -148,41 +87,64 @@ export default function EarningsDetail() {
       ) : error ? (
         <div className="earnings-error">
           <p>{error}</p>
-          <button className="btn btn-primary btn-small" onClick={fetchMovies}>Try Again</button>
-        </div>
-      ) : movies.length === 0 ? (
-        <div className="earnings-empty">
-          <div className="earnings-empty-icon">🎬</div>
-          <p>You haven't published any content yet.</p>
-          <Link to="/filmmaker-studio/upload" className="btn btn-primary">Upload Your First Film</Link>
+          <button className="btn btn-primary btn-small" onClick={fetchData}>Try Again</button>
         </div>
       ) : (
         <>
-          {/* Summary cards */}
+          <div className="earnings-split-card" style={{ marginBottom: 24 }}>
+            <div className="earnings-split-label">Revenue Split</div>
+            {hasSplit ? (
+              <>
+                <div className="earnings-split-bar">
+                  <div className="earnings-split-filmmaker" style={{ width: `${filmmakerSplitPct}%` }}>
+                    <span>You — {filmmakerSplitPct}%</span>
+                  </div>
+                  <div className="earnings-split-platform" style={{ width: `${platformSplitPct}%` }}>
+                    <span>Platform — {platformSplitPct}%</span>
+                  </div>
+                </div>
+                <p className="earnings-split-note">
+                  Based on your contract, your revenue split is {filmmakerSplitPct}% / {platformSplitPct}%.
+                </p>
+              </>
+            ) : (
+              <p style={{ color: '#888', marginTop: 12 }}>Not available from backend yet.</p>
+            )}
+          </div>
+
+          <div className="earnings-split-card" style={{ marginBottom: 32 }}>
+             <div className="earnings-split-label">Minimum Guarantee</div>
+             {hasMG ? (
+                <div style={{ marginTop: 12 }}>
+                  <p><strong>Total Guarantee:</strong> {fmt(mgAmount, currency)}</p>
+                  {mgRemaining !== undefined && <p><strong>Remaining:</strong> {fmt(mgRemaining, currency)}</p>}
+                  <p><strong>Status:</strong> {mgRecouped ? 'Recouped' : 'Remaining'}</p>
+                </div>
+             ) : (
+                <p style={{ color: '#888', marginTop: 12 }}>Not available from backend yet.</p>
+             )}
+          </div>
+
           <div className="earnings-summary-grid">
             <div className="earnings-summary-card">
-              <div className="earnings-card-label">Total Earnings (Your 70%)</div>
-              <div className="earnings-card-value earnings-card-value--highlight">{fmt(totalEarnings, currency)}</div>
-              <div className="earnings-card-sub">of {fmt(totalRevenue, currency)} total revenue</div>
+              <div className="earnings-card-label">Total Earnings</div>
+              <div className="earnings-card-value earnings-card-value--highlight">
+                {totalEarnings !== undefined ? fmt(totalEarnings, currency) : <span style={{fontSize: 16, color: '#888'}}>Not available from backend yet</span>}
+              </div>
+            </div>
+            <div className="earnings-summary-card">
+              <div className="earnings-card-label">Gross Revenue</div>
+              <div className="earnings-card-value">
+                {totalRevenue !== undefined ? fmt(totalRevenue, currency) : <span style={{fontSize: 16, color: '#888'}}>Not available</span>}
+              </div>
             </div>
             <div className="earnings-summary-card">
               <div className="earnings-card-label">Total Views</div>
               <div className="earnings-card-value">{totalViews.toLocaleString()}</div>
               <div className="earnings-card-sub">across {movies.length} film{movies.length !== 1 ? 's' : ''}</div>
             </div>
-            <div className="earnings-summary-card">
-              <div className="earnings-card-label">Platform Fee (30%)</div>
-              <div className="earnings-card-value earnings-card-value--muted">{fmt(totalPlatformFee, currency)}</div>
-              <div className="earnings-card-sub">retained by Viewesta</div>
-            </div>
-            <div className="earnings-summary-card">
-              <div className="earnings-card-label">Est. Rate per View</div>
-              <div className="earnings-card-value">{fmt(ESTIMATED_RATE_PER_VIEW * FILMMAKER_SHARE, currency)}</div>
-              <div className="earnings-card-sub">filmmaker share</div>
-            </div>
           </div>
 
-          {/* Tabs */}
           <div className="earnings-tabs">
             {['overview', 'per-film', 'monthly'].map((tab) => (
               <button
@@ -195,100 +157,66 @@ export default function EarningsDetail() {
             ))}
           </div>
 
-          {/* Overview tab — sparkline + top films */}
-          {activeTab === 'overview' && (
-            <div className="earnings-overview">
-              <div className="earnings-chart-card">
-                <div className="earnings-chart-title">6-Month Earnings Trend</div>
-                <div className="earnings-chart-labels">
-                  {monthlyBuckets.map((b) => (
-                    <span key={b.key} style={{ fontSize: 11, color: '#666', textAlign: 'center' }}>{b.label}</span>
-                  ))}
-                </div>
-                <Sparkline data={monthlyBuckets} width={500} height={72} />
-                <div className="earnings-chart-values">
-                  {monthlyBuckets.map((b) => (
-                    <span key={b.key} style={{ fontSize: 11, color: '#888', textAlign: 'center' }}>
-                      {b.earnings > 0 ? fmt(b.earnings, currency) : '—'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {filmBreakdown.slice(0, 3).length > 0 && (
-                <div>
-                  <h3 className="earnings-section-title">Top Performing Films</h3>
-                  {filmBreakdown.slice(0, 3).map(({ movie, views, filmmakerEarnings, baseRevenue }) => (
-                    <div key={movie.id} className="earnings-film-row earnings-film-row--compact">
-                      <img src={movie.poster} alt={movie.title} className="earnings-film-poster" />
-                      <div className="earnings-film-info">
-                        <div className="earnings-film-title">{movie.title}</div>
-                        <div className="earnings-film-meta">{views.toLocaleString()} views · {fmt(baseRevenue, currency)} revenue</div>
-                      </div>
-                      <div className="earnings-film-amount">{fmt(filmmakerEarnings, currency)}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Per-film tab */}
           {activeTab === 'per-film' && (
             <div className="earnings-films-table">
               <div className="earnings-table-header">
                 <span>Film</span>
                 <span>Views</span>
-                <span>Revenue</span>
-                <span>Your Earnings (70%)</span>
+                <span>Gross Revenue</span>
+                <span>Your Earnings</span>
               </div>
-              {filmBreakdown.map(({ movie, views, baseRevenue, filmmakerEarnings, platformFee }) => (
-                <div key={movie.id} className="earnings-table-row">
-                  <div className="earnings-film-cell">
-                    <img src={movie.poster} alt={movie.title} className="earnings-film-poster" />
-                    <div>
-                      <div className="earnings-film-title">{movie.title}</div>
-                      <div className="earnings-film-status">{movie.status || movie.approval_status || 'pending'}</div>
-                    </div>
-                  </div>
-                  <div className="earnings-table-cell">{views.toLocaleString()}</div>
-                  <div className="earnings-table-cell">{fmt(baseRevenue, currency)}</div>
-                  <div className="earnings-table-cell earnings-amount-highlight">
-                    {fmt(filmmakerEarnings, currency)}
-                    <div className="earnings-table-sub">platform: {fmt(platformFee, currency)}</div>
-                  </div>
-                </div>
-              ))}
-              <div className="earnings-table-total">
-                <span>Total</span>
-                <span>{totalViews.toLocaleString()}</span>
-                <span>{fmt(totalRevenue, currency)}</span>
-                <span className="earnings-amount-highlight">{fmt(totalEarnings, currency)}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Monthly tab */}
-          {activeTab === 'monthly' && (
-            <div className="earnings-monthly">
-              <h3 className="earnings-section-title">Monthly Breakdown (Last 6 Months)</h3>
-              {monthlyBuckets.map((bucket) => {
-                const pct = maxMonthEarnings > 0 ? (bucket.earnings / maxMonthEarnings) * 100 : 0;
+              {movies.map((movie) => {
+                const views = Number(movie?.raw?.view_count ?? movie?.raw?.views ?? movie?.raw?.total_views ?? 0);
+                const backendGross = movie?.raw?.gross_revenue;
+                const backendEarnings = movie?.raw?.filmmaker_earnings;
+                
                 return (
-                  <div key={bucket.key} className="earnings-month-row">
-                    <div className="earnings-month-label">{bucket.label}</div>
-                    <div className="earnings-month-bar-wrap">
-                      <div className="earnings-month-bar" style={{ width: `${pct}%` }} />
+                  <div key={movie.id} className="earnings-table-row">
+                    <div className="earnings-film-cell">
+                      <img src={movie.poster} alt={movie.title} className="earnings-film-poster" />
+                      <div>
+                        <div className="earnings-film-title">{movie.title}</div>
+                        <div className="earnings-film-status">{movie.status || movie.approval_status || 'pending'}</div>
+                      </div>
                     </div>
-                    <div className="earnings-month-amount">
-                      {bucket.earnings > 0 ? fmt(bucket.earnings, currency) : <span style={{ color: '#555' }}>—</span>}
+                    <div className="earnings-table-cell">{views.toLocaleString()}</div>
+                    <div className="earnings-table-cell">
+                      {backendGross !== undefined ? fmt(backendGross, currency) : <span style={{color: '#888', fontSize: 12}}>Not available</span>}
+                    </div>
+                    <div className="earnings-table-cell earnings-amount-highlight">
+                      {backendEarnings !== undefined ? fmt(backendEarnings, currency) : <span style={{color: '#888', fontSize: 12}}>Not available from backend yet</span>}
                     </div>
                   </div>
                 );
               })}
-              <div className="earnings-monthly-note">
-                ℹ️ Monthly earnings reflect content published during that month using an estimated view rate.
-                Final payouts are calculated at the end of each billing cycle.
+            </div>
+          )}
+
+          {activeTab === 'monthly' && (
+            <div className="earnings-monthly">
+              <h3 className="earnings-section-title">Monthly Breakdown</h3>
+              {payouts.length > 0 ? (
+                payouts.map((payout, idx) => (
+                  <div key={idx} className="earnings-month-row">
+                    <div className="earnings-month-label">{payout.month || payout.period || new Date(payout.created_at).toLocaleString('default', { month: 'short', year: 'numeric' })}</div>
+                    <div className="earnings-month-amount">
+                      {fmt(payout.amount || payout.earnings, currency)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="earnings-monthly-note" style={{ color: '#888' }}>
+                  Not available from backend yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'overview' && (
+            <div className="earnings-overview">
+              <div className="earnings-chart-card">
+                <h3 className="earnings-section-title">Recent Activity</h3>
+                <p style={{ color: '#888' }}>Not available from backend yet. (Charts will appear when historical payout data is available)</p>
               </div>
             </div>
           )}
