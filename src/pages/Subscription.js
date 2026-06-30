@@ -6,7 +6,6 @@ import {
   FaBan, FaHeadset, FaShieldAlt, FaBolt, FaGem, FaSpinner,
 } from 'react-icons/fa';
 import { getSubscriptionPlans, subscribe } from '../services/subscriptionService';
-import { createCardCheckoutSession } from '../services/paymentService';
 import PaymentMethodModal from '../components/PaymentMethodModal';
 import './Subscription.css';
 
@@ -35,7 +34,7 @@ const calculateDiscountedPrice = (price, percentage = 15) => {
 };
 
 const Subscription = () => {
-  const { user, updateSubscription } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
@@ -92,37 +91,36 @@ const Subscription = () => {
   const handleConfirmPayment = async (paymentMethod) => {
     setPaymentModalOpen(false);
     
-    if (paymentMethod === 'card') {
-      try {
-        setSubscribing(selectedPlan.id);
-        const session = await createCardCheckoutSession({
-          item_type: 'subscription',
-          item_id: selectedPlan.id,
-          amount: selectedPlan.finalAmount,
-          return_url: `${window.location.origin}/subscription-success`
-        });
-        if (session && session.checkout_url) {
-          window.location.href = session.checkout_url;
-        }
-      } catch (err) {
-        setSubError('Failed to initiate card payment. Please try again.');
-        setSubscribing(null);
-      }
-      return;
-    }
-
-    // Proceed with wallet payment
     setSubscribing(selectedPlan.id);
     setSubSuccess('');
     setSubError('');
+
     try {
-      await subscribe({ plan_id: selectedPlan.id, payment_method: paymentMethod });
-      updateSubscription(selectedPlan.id);
+      const response = await subscribe({ plan_id: selectedPlan.id, payment_method: paymentMethod });
+      
+      // Support nested redirect_url in response.data or top-level redirect_url
+      const redirectUrl = response?.data?.redirect_url || response?.redirect_url;
+
+      if (redirectUrl) {
+        const returnUrl = returnTo && movieId 
+          ? decodeURIComponent(returnTo) 
+          : `/subscription`;
+          
+        // Store the return URL in session storage for the PaymentCallback page
+        sessionStorage.setItem('vw_payment_return_to', returnUrl);
+        
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // Wallet payment was instantly successful
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+      
       setSubSuccess(`You're now subscribed to the ${selectedPlan.id} plan!`);
       
-      // MOCK: If we arrived here from MovieDetail, simulate success and navigate to Watch.js
       if (returnTo && movieId) {
-        sessionStorage.setItem(`playback_auth_${movieId}`, 'true');
         setTimeout(() => {
           navigate(decodeURIComponent(returnTo));
         }, 1500); // short delay to show success message

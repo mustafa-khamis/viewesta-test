@@ -289,3 +289,9 @@
   border-color: #ef4444;
   color: #ef4444;
 }
+
+@media (max-width: 480px) {
+  .muz-url-input-row {
+    flex-direction: column;
+  }
+}

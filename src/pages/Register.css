@@ -328,4 +328,9 @@
   .role-options {
     flex-direction: column;
   }
+  
+  .name-input {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

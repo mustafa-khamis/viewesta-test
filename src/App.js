@@ -34,6 +34,7 @@ import Following from './pages/Following';
 import FilmmakerPublicProfile from './pages/FilmmakerPublicProfile';
 import ShortFilms from './pages/ShortFilms';
 import AdminApproval from './pages/admin/AdminApproval';
+import PaymentCallback from './pages/PaymentCallback';
 
 import FilmmakerDashboard from './pages/filmmaker/FilmmakerDashboard';
 import FilmmakerMyMovies from './pages/filmmaker/FilmmakerMyMovies';
@@ -91,6 +92,7 @@ function App() {
                     <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
                     <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
                     <Route path="/following" element={<ProtectedRoute><Following /></ProtectedRoute>} />
+                    <Route path="/payment-callback" element={<ProtectedRoute><PaymentCallback /></ProtectedRoute>} />
 
                     <Route path="/filmmaker-followers" element={<FilmmakerRoute><FilmmakerFollowers /></FilmmakerRoute>} />
                     <Route path="/filmmaker-views" element={<FilmmakerRoute><FilmmakerViews /></FilmmakerRoute>} />

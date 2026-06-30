@@ -409,3 +409,29 @@
   color: #777;
   line-height: 1.5;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .earnings-page {
+    padding: 1rem;
+  }
+
+  .earnings-films-table {
+    overflow-x: auto;
+  }
+
+  .earnings-table-header, 
+  .earnings-table-total, 
+  .earnings-table-row {
+    min-width: 600px;
+  }
+
+  .earnings-month-row {
+    flex-wrap: wrap;
+  }
+
+  .earnings-month-amount {
+    text-align: left;
+    margin-left: calc(60px + 1rem); /* Align with bar */
+  }
+}

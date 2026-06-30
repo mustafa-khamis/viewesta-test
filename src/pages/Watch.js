@@ -12,36 +12,46 @@ const Watch = () => {
   const { id } = useParams();
   const [params] = [new URLSearchParams(window.location.search)];
   const navigate = useNavigate();
-  const { getMovieById, loading: contextLoading } = useMovies();
+  const { getMovieById, loading: contextLoading, purchasedMovies } = useMovies();
   const { user } = useAuth();
 
   const quality = new URLSearchParams(window.location.search).get('q') || '1080p';
 
-  // TODO: Temporary frontend-only playback authorization check. Replace with backend DRM token validation.
-  const isAuthorized = sessionStorage.getItem(`playback_auth_${id}`) === 'true';
-
-  // Try context first, then API
-  const [movie, setMovie] = useState(() => isAuthorized ? getMovieById(id) : null);
+  const [movie, setMovie] = useState(() => getMovieById(id));
   const [isFetching, setIsFetching] = useState(false);
-  const [movieError, setMovieError] = useState(isAuthorized ? '' : 'Unauthorized playback session. Please initiate playback from the movie details page.');
+  const [movieError, setMovieError] = useState('');
 
   // Video sources from backend video-files API
   const [sourcesMap, setSourcesMap] = useState({});
-  const [sourcesLoading, setSourcesLoading] = useState(isAuthorized);
+  const [sourcesLoading, setSourcesLoading] = useState(true);
+
+  // ─── Authorization Check ───────────────────────────────────────────────
+  const checkAuthorization = useCallback((m) => {
+    if (!m) return false;
+    if (!user) return false;
+    const isFilmmaker = String(user.id) === String(m.filmmakerId || m.raw?.filmmaker_id);
+    const monetizationType = m.raw?.monetization_type || m.monetization_type || 'both';
+    const isSubscribed = user?.subscription?.active;
+    const isPurchased = Array.isArray(purchasedMovies) && purchasedMovies.includes(String(m.id));
+
+    if (isFilmmaker || isPurchased || (isSubscribed && (monetizationType === 'both' || monetizationType === 'subscription'))) {
+      return true;
+    }
+    return false;
+  }, [user, purchasedMovies]);
+
+  const [isAuthorized, setIsAuthorized] = useState(() => checkAuthorization(movie));
 
   // ─── Sync movie with context ─────────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthorized) return;
     const ctxMovie = getMovieById(id);
     if (ctxMovie) {
       setMovie(ctxMovie);
-      setMovieError('');
     }
-  }, [getMovieById, id, isAuthorized]);
+  }, [getMovieById, id]);
 
   // ─── Fetch movie if not in context ───────────────────────────────────────
   useEffect(() => {
-    if (!isAuthorized) return;
     if (movie) return; // already have it
     if (contextLoading) return; // wait for context to finish first
 
@@ -53,7 +63,6 @@ const Watch = () => {
         if (active) {
           if (m) {
             setMovie(m);
-            setMovieError('');
           } else {
             setMovieError('Movie not found.');
           }
@@ -65,9 +74,22 @@ const Watch = () => {
       }
     })();
     return () => { active = false; };
-  }, [id, movie, contextLoading, isAuthorized]);
+  }, [id, movie, contextLoading]);
 
-  const isLoading = isAuthorized && (contextLoading || isFetching);
+  // ─── Validate Authorization ──────────────────────────────────────────────
+  useEffect(() => {
+    if (movie) {
+      const authorized = checkAuthorization(movie);
+      setIsAuthorized(authorized);
+      if (!authorized) {
+         setMovieError('Unauthorized playback session. Please initiate playback from the movie details page.');
+      } else {
+         setMovieError('');
+      }
+    }
+  }, [movie, checkAuthorization]);
+
+  const isLoading = contextLoading || isFetching;
 
   // ─── Fetch video files from backend ──────────────────────────────────────
   useEffect(() => {
@@ -143,9 +165,7 @@ const Watch = () => {
     );
   }
 
-  // ─── TEMPORARY: Subscription gate REMOVED for testing ────────────────────
-  // TODO: Restore subscription/purchase check before production launch
-  // const canWatch = user && (user.subscription?.active || (user.purchasedMovies?.includes?.(movie.id)));
+
 
   // Determine best video source from dynamic endpoint
   const finalSrc = pickBestSource(sourcesMap) || '';

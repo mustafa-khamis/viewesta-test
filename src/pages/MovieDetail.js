@@ -17,11 +17,10 @@ const MovieDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getMovieById, movies, addToWatchlist, removeFromWatchlist, watchlist, rateContent, getUserRating, addToDownloads, purchasedMovies } = useMovies();
-  const { user, purchaseMovie } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [selectedQuality, setSelectedQuality] = useState('1080p');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [isTrailerOpen, setIsTrailerOpen] = useState(false);
   const [isMutatingWatchlist, setIsMutatingWatchlist] = useState(false);
@@ -35,52 +34,9 @@ const MovieDetail = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({ title: '', description: '', status: '' });
 
-  // PPV Expiration State
-  const [ppvExpiry, setPpvExpiry] = useState(null);
-  const [timeLeft, setTimeLeft] = useState('');
-
   useEffect(() => {
     setMovie(getMovieById(id));
   }, [getMovieById, id]);
-
-  // Calculate PPV Expiration on mount or movie change
-  useEffect(() => {
-    if (!movie) return;
-    try {
-      const expiries = JSON.parse(localStorage.getItem('viewesta_ppv_expiry') || '{}');
-      const expiry = expiries[movie.id];
-      if (expiry) {
-        setPpvExpiry(expiry);
-      } else {
-        setPpvExpiry(null);
-      }
-    } catch (e) {
-      setPpvExpiry(null);
-    }
-  }, [movie]);
-
-  useEffect(() => {
-    if (!ppvExpiry) {
-      setTimeLeft('');
-      return;
-    }
-    
-    const calculateTimeLeft = () => {
-      const now = Date.now();
-      const difference = ppvExpiry - now;
-      if (difference <= 0) {
-        setTimeLeft('Expired');
-        return;
-      }
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-      setTimeLeft(`${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`);
-    };
-
-    calculateTimeLeft();
-    const intervalId = setInterval(calculateTimeLeft, 60000); // update every minute
-    return () => clearInterval(intervalId);
-  }, [ppvExpiry]);
 
   // TEMPORARY: Approval filter removed for testing — show ALL content regardless of status
   // TODO: Restore approval check before production: check approval_status === 'APPROVED'
@@ -251,12 +207,10 @@ const MovieDetail = () => {
     const monetizationType = movie.raw?.monetization_type || movie.monetization_type || 'both';
     const isSubscribed = user?.subscription?.active;
     
-    // Check local expiry if purchased
+    // Check backend purchased state
     const isPurchased = Array.isArray(purchasedMovies) && purchasedMovies.includes(String(movie.id));
-    const isExpired = isPurchased && ppvExpiry && Date.now() >= ppvExpiry;
-    const hasValidPurchase = isPurchased && !isExpired;
     
-    if (isFilmmaker || hasValidPurchase || (isSubscribed && (monetizationType === 'both' || monetizationType === 'subscription'))) {
+    if (isFilmmaker || isPurchased || (isSubscribed && (monetizationType === 'both' || monetizationType === 'subscription'))) {
       // Authorized user bypass: navigate directly to Watch.js
       addToDownloads(movie.id);
       sessionStorage.setItem(`playback_auth_${movie.id}`, 'true');
@@ -283,62 +237,33 @@ const MovieDetail = () => {
     if (user) {
       setShowPaymentMethodModal(false);
       
-      const purchaseAmount = Number((movie.price || {})[selectedQuality] ?? 0);
-
-      if (paymentMethod === 'card') {
-        try {
-          const session = await paymentService.createCardCheckoutSession({
-            item_type: 'movie',
-            item_id: movie.id,
-            amount: purchaseAmount,
-            return_url: `${window.location.origin}/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`
-          });
-          if (session && session.checkout_url) {
-            window.location.href = session.checkout_url;
-          }
-        } catch (error) {
-          alert('Failed to initiate card payment. Please try again.');
-        }
-        return;
-      }
-
-      // Wallet payment logic
       try {
-        await paymentService.purchaseMovie({
+        const response = await paymentService.purchaseMovie({
           movie_id: movie.id,
           quality: selectedQuality,
           payment_method: paymentMethod
         });
+
+        const redirectUrl = response?.data?.redirect_url || response?.redirect_url;
+
+        if (redirectUrl) {
+          const returnUrl = `/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`;
+          sessionStorage.setItem('vw_payment_return_to', returnUrl);
+          window.location.href = redirectUrl;
+        } else if (response && (response.success || response.status === 'completed')) {
+          // Instant wallet payment confirmed by backend
+          if (refreshProfile) {
+            await refreshProfile();
+          }
+          navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`);
+        } else {
+          alert('Failed to initiate payment. Please try again.');
+        }
       } catch (error) {
-        console.warn('Backend purchase failed or is mock only. Proceeding with frontend fallback.', error.message);
+        console.error('Purchase failed:', error);
+        alert(error?.response?.data?.message || 'Failed to initiate payment. Please try again.');
       }
-      
-      // Simulate frontend 120-hour expiration for PPV
-      const expiresAt = Date.now() + 120 * 60 * 60 * 1000;
-      try {
-        const expiries = JSON.parse(localStorage.getItem('viewesta_ppv_expiry') || '{}');
-        expiries[movie.id] = expiresAt;
-        localStorage.setItem('viewesta_ppv_expiry', JSON.stringify(expiries));
-        setPpvExpiry(expiresAt);
-        // Force the purchasedMovies update in context if it doesn't auto-update from API yet
-        // In reality, reloading context or a new API call is better, but this handles the immediate state
-      } catch (e) {
-        console.error('Failed to set PPV expiry', e);
-      }
-
-      sessionStorage.setItem(`playback_auth_${movie.id}`, 'true');
-      setShowSuccessModal(true);
     }
-  };
-
-  const handleSuccessWatchNow = () => {
-    setShowSuccessModal(false);
-    navigate(`/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`);
-  };
-
-  const handleSuccessDownload = () => {
-    addToDownloads(movie.id);
-    alert('Movie added to your downloads!');
   };
 
   const handleWatchlistToggle = async () => {
@@ -544,34 +469,19 @@ const MovieDetail = () => {
               )}
             </div>
 
-            {/* PPV Expiration Countdown / Status */}
-            {ppvExpiry && (
-              <div className="ppv-status-banner">
-                {timeLeft === 'Expired' ? (
-                  <span className="ppv-expired-msg">Your access has expired</span>
-                ) : (
-                  <span className="ppv-countdown">Access expires in: {timeLeft}</span>
-                )}
-              </div>
-            )}
-
             {/* Actions */}
             <div className="movie-actions">
               <div className="primary-cta">
                 <button 
-                  onClick={timeLeft === 'Expired' ? () => setShowPurchaseModal(true) : handleWatch} 
-                  className={`btn ${timeLeft === 'Expired' ? 'btn-outline' : 'btn-primary'}`}
+                  onClick={handleWatch} 
+                  className="btn btn-primary"
                 >
-                  {timeLeft === 'Expired' ? 'Unlock Again' : (
-                    <>
-                      <FaPlay />
-                      {user?.subscription?.active ? 'Watch Now' : 'Watch'}
-                    </>
-                  )}
+                  <FaPlay />
+                  {user?.subscription?.active ? 'Watch Now' : 'Watch'}
                 </button>
                 <button 
                   onClick={user ? handleWatchlistToggle : () => navigate('/login')}
-                  disabled={isMutatingWatchlist || timeLeft === 'Expired'}
+                  disabled={isMutatingWatchlist}
                   className={`btn btn-secondary wishlist-btn ${isInWatchlist ? 'active' : ''}`}
                   title={!user ? "Log in to add to your wishlist" : (isInWatchlist ? "Remove from wishlist" : "Add to wishlist")}
                 >
@@ -825,39 +735,6 @@ const MovieDetail = () => {
         amount={Number((movie.price || {})[selectedQuality] ?? 0)}
         title={`Purchase ${movie.title}`}
       />
-
-      {/* Payment Success Modal */}
-      {showSuccessModal && (
-        <div className="modal-overlay success-modal-overlay">
-          <div className="purchase-modal success-modal">
-            <div className="modal-content" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div className="success-icon" style={{ fontSize: '3rem', color: '#4ade80', marginBottom: '1rem' }}>
-                <FaHeart className="heart-beat" />
-              </div>
-              <h2 style={{ marginBottom: '0.5rem' }}>Payment successful</h2>
-              <h3 style={{ color: 'var(--primary-color)', marginBottom: '1rem' }}>Movie unlocked</h3>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Access valid for 120 hours</p>
-              
-              <div className="success-actions" style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                <button 
-                  onClick={handleSuccessWatchNow} 
-                  className="btn btn-primary"
-                  style={{ minWidth: '120px' }}
-                >
-                  Watch Now
-                </button>
-                <button 
-                  onClick={handleSuccessDownload} 
-                  className="btn btn-secondary"
-                  style={{ minWidth: '120px' }}
-                >
-                  Download
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

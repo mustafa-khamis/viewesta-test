@@ -34,7 +34,7 @@ const Wallet = () => {
   const [topUpAmount, setTopUpAmount]   = useState(25);
   const [customValue, setCustomValue]   = useState('');
   const [selectedMethod, setSelectedMethod] = useState('card');
-  const [selectedProvider, setSelectedProvider] = useState('flutterwave');
+  const [selectedProvider, setSelectedProvider] = useState('pesapal');
   const [topping, setTopping]           = useState(false);
   const [topSuccess, setTopSuccess]     = useState(false);
   const [topError, setTopError]         = useState('');
@@ -46,6 +46,7 @@ const Wallet = () => {
   ];
 
   const paymentProviders = [
+    { id: 'pesapal', name: 'Pesapal' },
     { id: 'flutterwave', name: 'Flutterwave' },
     { id: 'stripe', name: 'Stripe' },
   ];
@@ -85,6 +86,16 @@ const Wallet = () => {
         payment_provider: selectedProvider,
         payment_method: selectedMethod,
       });
+
+      if (result && result.redirect_url) {
+        // Append return_to so the callback can route us back to Wallet
+        const returnTo = encodeURIComponent(`/wallet`);
+        const url = new URL(result.redirect_url);
+        url.searchParams.append('return_to', returnTo);
+        window.location.href = url.toString();
+        return; // Don't stop topping, we are redirecting
+      }
+
       // Update local wallet data with new balance returned by backend
       setWalletData((prev) => ({
         ...prev,
@@ -96,6 +107,7 @@ const Wallet = () => {
       setTopSuccess(true);
       setCustomValue('');
       setTimeout(() => setTopSuccess(false), 3500);
+      setTopping(false);
     } catch (err) {
       console.error('Top-up API Error:', JSON.stringify(err.response?.data, null, 2) || err.message);
       
@@ -122,7 +134,6 @@ const Wallet = () => {
       }
       
       setTopError(errorMsg);
-    } finally {
       setTopping(false);
     }
   };

@@ -31,8 +31,11 @@ export async function purchaseMovie({ movie_id, quality = '1080p', payment_metho
  * @param {{ transaction_id: string, order_tracking_id?: string }} payload
  * @returns {object} Verification result
  */
-export async function verifyPayment({ transaction_id, order_tracking_id }) {
-  const { data } = await client.post('/payments/verify', { transaction_id, order_tracking_id });
+export async function verifyPayment({ transaction_id, order_tracking_id, merchant_reference }) {
+  const { data } = await client.post('/payments/verify', { 
+    order_tracking_id, 
+    merchant_reference: merchant_reference || transaction_id 
+  });
   return data;
 }
 
@@ -42,22 +45,6 @@ export async function verifyPayment({ transaction_id, order_tracking_id }) {
  * @returns {object} Session data containing checkout_url
  */
 export async function createCardCheckoutSession({ item_type, item_id, amount, return_url }) {
-  try {
-    // Attempt real backend call
-    const { data } = await client.post('/payments/pesapal/checkout', { item_type, item_id, amount, return_url });
-    return data;
-  } catch (err) {
-    console.warn('Backend Pesapal endpoint not ready or failed. Simulating checkout session...', err.message);
-    
-    // MOCK / TODO: Remove when backend Pesapal is fully active
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          checkout_url: `/checkout-simulation?amount=${amount}&item_type=${item_type}&item_id=${item_id}`,
-          order_tracking_id: `MOCK_TRK_${Date.now()}`
-        });
-      }, 800);
-    });
-  }
+  const { data } = await client.post('/payments/pesapal/checkout', { item_type, item_id, amount, return_url });
+  return data;
 }

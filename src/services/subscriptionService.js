@@ -50,7 +50,7 @@ export async function getSubscriptionPlans() {
  * @returns {{ subscription: object, message: string }}
  */
 export async function subscribe({ plan_id, payment_method = 'wallet' }) {
-  const { data } = await client.post('/subscriptions/subscribe', { plan_id, payment_method });
+  const { data } = await client.post('/subscriptions/subscribe', { plan_type: plan_id, payment_method });
   return data;
 }
 

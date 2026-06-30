@@ -1,0 +1,51 @@
+.payment-callback-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+  text-align: center;
+}
+
+.payment-callback-card {
+  background: var(--bg-card, #1a1a1a);
+  padding: 3rem 2rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+  width: 100%;
+}
+
+.callback-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.callback-icon.spin {
+  color: var(--primary-color, #e50914);
+  animation: spin 1.5s linear infinite;
+}
+
+.callback-icon.success {
+  color: #4caf50;
+}
+
+.callback-icon.error {
+  color: #f44336;
+}
+
+.payment-callback-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--text-color, #fff);
+}
+
+.payment-callback-card p {
+  color: var(--text-muted, #aaa);
+  margin-bottom: 2rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

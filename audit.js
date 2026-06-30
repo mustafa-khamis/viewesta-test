@@ -1,7 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 
-const BASE_URL = 'http://viewesta-api-prod.eba-dwwczxu3.us-east-1.elasticbeanstalk.com/api/v1';
+const BASE_URL = 'https://api.viewesta.com/api/v1';
 
 async function runAudit() {
   const timestamp = Date.now();

@@ -351,7 +351,17 @@
     font-size: 0.7rem;
   }
 
-  .eb-field--duration {
-    width: 90px;
+  .eb-row {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .eb-field,
+  .eb-field--title,
+  .eb-field--duration,
+  .eb-field--desc,
+  .eb-field--video {
+    width: 100% !important;
+    min-width: 0 !important;
   }
 }

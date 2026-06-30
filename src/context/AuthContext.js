@@ -58,8 +58,7 @@ export const AuthProvider = ({ children }) => {
 // I changed this useEffect so it will check the auth status by calling the getCurrentUser endpoint
 // it run after login, register, and start of the app or refreshing the page 
 
- useEffect(() => {
-  const initAuth = async () => {
+  const refreshProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem('viewesta_token');
       if (!token) {
@@ -83,17 +82,20 @@ export const AuthProvider = ({ children }) => {
       }
 
       persistUser(fetchedUser);
+      return fetchedUser;
     } catch (err) {
       console.log('Auth check failed:', err.message);
-
       localStorage.removeItem('viewesta_token');
       localStorage.removeItem(USER_KEY);
+      persistUser(null);
     } finally {
       setLoading(false);
     }
-  };
-  initAuth();
-}, []);
+  }, [persistUser]);
+
+  useEffect(() => {
+    refreshProfile();
+  }, [refreshProfile]);
 
 
 // I edited the login function to use the apiclient insted of Mock loing of authService
@@ -221,7 +223,7 @@ const register = async (data) => {
 
       // Bypass apiClient to prevent Content-Type: application/json overriding FormData boundaries
       const token = localStorage.getItem('viewesta_token');
-      const updateRes = await axios.put(`${process.env.REACT_APP_API_BASE || 'http://viewesta-api-prod.eba-dwwczxu3.us-east-1.elasticbeanstalk.com'}/api/v1/auth/profile/avatar`, formData, {
+      const updateRes = await axios.put(`${process.env.REACT_APP_API_BASE || 'https://api.viewesta.com'}/api/v1/auth/profile/avatar`, formData, {
         headers: {
           'Authorization': `Bearer ${token}`
           // Do NOT set Content-Type, browser will automatically set it to multipart/form-data with the correct boundary
@@ -239,38 +241,6 @@ const register = async (data) => {
     }
   };
 
-  const updateWallet = (amount) => {
-    if (!user) return;
-    const updated = {
-      ...user,
-      wallet: { ...user.wallet, balance: Number(user.wallet.balance) + amount },
-    };
-    persistUser(updated);
-  };
-
-  const purchaseMovie = (movieId, price) => {
-    if (!user) return { success: false, error: 'Please log in first.' };
-    const balance = Number(user.wallet.balance);
-    const p = Number(price);
-    if (balance < p) return { success: false, error: 'Insufficient balance' };
-    const updated = {
-      ...user,
-      wallet: { ...user.wallet, balance: balance - p },
-      purchasedMovies: [...(user.purchasedMovies || []), String(movieId)],
-    };
-    persistUser(updated);
-    return { success: true };
-  };
-
-  const updateSubscription = (planId) => {
-    if (!user) return;
-    const updated = {
-      ...user,
-      subscription: { active: true, plan_id: planId }
-    };
-    persistUser(updated);
-  };
-
   const value = {
     user,
     loading,
@@ -281,10 +251,7 @@ const register = async (data) => {
     updateProfile,
     uploadAvatar,
     changePassword,
-    updateWallet,
-    purchaseMovie,
-    updateSubscription,
-    refreshProfile: () => user && persistUser(user),
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

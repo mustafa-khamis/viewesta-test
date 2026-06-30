@@ -344,26 +344,26 @@
 @media (max-width: 768px) {
   .movie-card,
   .movie-card-inner {
-    width: 150px !important; /* Match "More Like This" card size */
+    width: 100% !important; /* Let container manage width */
   }
   
   .movie-card .movie-poster {
-    width: 150px !important; /* Match "More Like This" card size */
-    height: 225px !important; /* 2:3 aspect ratio: 150px * 1.5 = 225px */
-    aspect-ratio: 2 / 3 !important; /* Ensure 2:3 ratio */
+    width: 100% !important; 
+    height: auto !important; 
+    aspect-ratio: 2 / 3 !important; 
   }
   
   .movie-info {
-    width: 150px !important; /* Match "More Like This" card size */
+    width: 100% !important; 
     padding: 0 2px;
-    margin-top: 6px; /* Reduced gap between poster and text */
+    margin-top: 6px; 
   }
   
   .movie-title,
   .movie-card .movie-title {
     font-size: clamp(12px, 2.5vw, 13px) !important;
-    width: 150px !important; /* Match "More Like This" card size */
-    margin: 4px 0 2px 0; /* Reduced spacing */
+    width: 100% !important; 
+    margin: 4px 0 2px 0; 
   }
   
   .movie-year,
@@ -401,26 +401,26 @@
 @media (max-width: 480px) {
   .movie-card,
   .movie-card-inner {
-    width: 140px !important; /* Match "More Like This" card size */
+    width: 100% !important; 
   }
   
   .movie-card .movie-poster {
-    width: 140px !important; /* Match "More Like This" card size */
-    height: 210px !important; /* 2:3 aspect ratio: 140px * 1.5 = 210px */
-    aspect-ratio: 2 / 3 !important; /* Ensure 2:3 ratio */
+    width: 100% !important; 
+    height: auto !important; 
+    aspect-ratio: 2 / 3 !important; 
   }
   
   .movie-info {
-    width: 140px !important; /* Match "More Like This" card size */
+    width: 100% !important; 
     padding: 0 2px;
-    margin-top: 4px; /* Further reduced gap */
+    margin-top: 4px; 
   }
   
   .movie-title,
   .movie-card .movie-title {
     font-size: clamp(11px, 3vw, 12px) !important;
-    width: 140px !important; /* Match "More Like This" card size */
-    margin: 3px 0 1px 0; /* Minimal spacing */
+    width: 100% !important; 
+    margin: 3px 0 1px 0; 
   }
   
   .movie-year,
