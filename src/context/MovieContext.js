@@ -107,8 +107,14 @@ export const MovieProvider = ({ children }) => {
     const fetchPurchases = async () => {
       try {
         const purchasesData = await paymentService.getPurchases();
-        const items = Array.isArray(purchasesData?.data) ? purchasesData.data : 
-                      (Array.isArray(purchasesData) ? purchasesData : []);
+        // Support all three backend response shapes:
+        //   1. { data: { purchases: [...] } }  ← real backend response
+        //   2. { data: [...] }                  ← flat-data envelope
+        //   3. [...]                            ← bare array
+        const items = Array.isArray(purchasesData?.data?.purchases) ? purchasesData.data.purchases :
+                      Array.isArray(purchasesData?.data)            ? purchasesData.data :
+                      Array.isArray(purchasesData)                  ? purchasesData :
+                      [];
         // Safely extract movie IDs based on potential structures, supporting flat arrays
         const ids = items.map(p => {
           if (typeof p === 'string' || typeof p === 'number') return String(p);
