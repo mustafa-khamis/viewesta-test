@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaSearch, FaUser, FaHeart, FaBars, FaTimes, FaChevronDown, FaFilm, FaDownload } from 'react-icons/fa';
+import { FaSearch, FaUser, FaHeart, FaBars, FaTimes, FaChevronDown, FaFilm, FaDownload, FaBell } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
+import { useNotification } from '../context/NotificationContext';
 import './Header.css';
 
 const Header = () => {
@@ -17,10 +18,10 @@ const Header = () => {
   const lastScrollY = useRef(0);
   const { user, logout } = useAuth();
   const { locale, setLocale, t } = useLocale();
+  const { unreadCount } = useNotification();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Keep header visible on initial load except for watch page where we start minimised
     if (isWatchPage) {
       setIsVisible(false);
       setAutoHideEnabled(true);
@@ -30,7 +31,7 @@ const Header = () => {
     }
     lastScrollY.current = window.scrollY;
   }, [isWatchPage]);
-  
+
   useEffect(() => {
     const activationOffset = 80;
     const scrollDelta = 6;
@@ -59,7 +60,7 @@ const Header = () => {
 
   const countries = [
     'United States', 'United Kingdom', 'Canada', 'Australia', 'India',
-    'France', 'Germany', 'Japan', 'South Korea', 'Brazil', 'Mexico', 'Spain'
+    'France', 'Germany', 'Japan', 'South Korea', 'Brazil', 'Mexico', 'Spain',
   ];
 
   const handleSearch = (e) => {
@@ -72,13 +73,11 @@ const Header = () => {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
-    // Close mobile menu when opening/closing
     if (isMenuOpen) {
       setIsMobileCountryOpen(false);
     }
   };
 
-  // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (isMenuOpen && !event.target.closest('.mobile-menu-drawer') && !event.target.closest('.mobile-menu-button')) {
@@ -86,23 +85,16 @@ const Header = () => {
         setIsMobileCountryOpen(false);
       }
     };
-
     if (isMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
-  const toggleMobileSearch = () => {
-    setIsMobileSearchOpen(!isMobileSearchOpen);
-  };
+  const toggleMobileSearch = () => setIsMobileSearchOpen(!isMobileSearchOpen);
 
   const handleLogout = () => {
     logout();
-    // Defer navigation so auth state clears first; then land on viewer home (guest mode)
     setTimeout(() => navigate('/'), 0);
   };
 
@@ -144,6 +136,7 @@ const Header = () => {
             <FaDownload />
             <span>{t('navDownloads')}</span>
           </Link>
+
           {/* Language Toggle */}
           <button
             className="lang-toggle"
@@ -155,6 +148,7 @@ const Header = () => {
             <span className="lang-sep">|</span>
             <span className={locale === 'fr' ? 'lang-opt lang-active' : 'lang-opt'}>FR</span>
           </button>
+
           {user ? (
             <>
               {(user.role || user.user_type || '').toLowerCase() === 'filmmaker' && (
@@ -163,6 +157,24 @@ const Header = () => {
                   <span>{t('navStudio')}</span>
                 </Link>
               )}
+
+              {/* ── Notification Bell ─────────────────────────────────── */}
+              <Link
+                to="/notifications"
+                className={`nav-link notification-bell-link ${location.pathname === '/notifications' ? 'active' : ''}`}
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                id="header-notification-bell"
+              >
+                <span className="notification-bell-wrap">
+                  <FaBell />
+                  {unreadCount > 0 && (
+                    <span className="header-notification-badge" aria-live="polite">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+              </Link>
+
               <div className="user-menu">
                 <button className="user-button">
                   <FaUser />
@@ -170,9 +182,15 @@ const Header = () => {
                 </button>
                 <div className="user-dropdown">
                   <Link to="/profile" className={`dropdown-link ${location.pathname.startsWith('/profile') ? 'active' : ''}`}>Profile</Link>
-          {(user.role || user.user_type || '').toLowerCase() === 'filmmaker' && (
-            <Link to="/filmmaker-studio" className="dropdown-link">Filmmaker Studio</Link>
-          )}
+                  {(user.role || user.user_type || '').toLowerCase() === 'filmmaker' && (
+                    <Link to="/filmmaker-studio" className="dropdown-link">Filmmaker Studio</Link>
+                  )}
+                  <Link to="/notifications" className="dropdown-link">
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="dropdown-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                    )}
+                  </Link>
                   <Link to="/subscription" className="dropdown-link">Subscription</Link>
                   <Link to="/wallet" className="dropdown-link">Wallet</Link>
                   <button onClick={handleLogout} className="dropdown-link">Logout</button>
@@ -196,6 +214,25 @@ const Header = () => {
         <button className="mobile-search-button" onClick={toggleMobileSearch} aria-label="Search">
           <FaSearch />
         </button>
+
+        {/* Mobile Notification Bell */}
+        {user && (
+          <Link
+            to="/notifications"
+            className="mobile-notification-bell"
+            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            id="header-mobile-notification-bell"
+          >
+            <span className="notification-bell-wrap">
+              <FaBell />
+              {unreadCount > 0 && (
+                <span className="header-notification-badge" aria-live="polite">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </span>
+          </Link>
+        )}
       </div>
 
       {/* Mobile Search Bar */}
@@ -228,7 +265,7 @@ const Header = () => {
             <FaTimes />
           </button>
         </div>
-        
+
         <nav className="mobile-menu-nav">
           <Link to="/" className="mobile-menu-link" onClick={toggleMenu}>{t('navHome')}</Link>
           <Link to="/watch" className="mobile-menu-link" onClick={toggleMenu}>{t('navMovies')}</Link>
@@ -236,7 +273,7 @@ const Header = () => {
           <Link to="/genres" className="mobile-menu-link" onClick={toggleMenu}>{t('navGenres')}</Link>
           <Link to="/watchlist" className="mobile-menu-link" onClick={toggleMenu}>{t('navWishlist')}</Link>
           <Link to="/downloads" className="mobile-menu-link" onClick={toggleMenu}>{t('navDownloads')}</Link>
-          {/* Mobile Language Toggle */}
+
           <button
             className="mobile-menu-link mobile-lang-toggle"
             onClick={() => setLocale(locale === 'en' ? 'fr' : 'en')}
@@ -247,7 +284,7 @@ const Header = () => {
 
           {/* Mobile Country Dropdown */}
           <div className="mobile-menu-dropdown">
-            <button 
+            <button
               className="mobile-menu-link mobile-menu-dropdown-toggle"
               onClick={() => setIsMobileCountryOpen(!isMobileCountryOpen)}
             >
@@ -257,10 +294,10 @@ const Header = () => {
             {isMobileCountryOpen && (
               <div className="mobile-menu-dropdown-content">
                 <div className="mobile-country-list">
-                  {countries.map(country => (
-                    <Link 
-                      key={country} 
-                      to={`/search?country=${encodeURIComponent(country.toLowerCase())}`} 
+                  {countries.map((country) => (
+                    <Link
+                      key={country}
+                      to={`/search?country=${encodeURIComponent(country.toLowerCase())}`}
                       className="mobile-country-link"
                       onClick={toggleMenu}
                     >
@@ -277,6 +314,12 @@ const Header = () => {
               {(user.role || user.user_type || '').toLowerCase() === 'filmmaker' && (
                 <Link to="/filmmaker-studio" className="mobile-menu-link" onClick={toggleMenu}>Studio</Link>
               )}
+              <Link to="/notifications" className="mobile-menu-link" onClick={toggleMenu}>
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="mobile-notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </Link>
               <Link to="/profile" className="mobile-menu-link" onClick={toggleMenu}>Profile</Link>
               <Link to="/subscription" className="mobile-menu-link" onClick={toggleMenu}>Subscription</Link>
               <Link to="/wallet" className="mobile-menu-link" onClick={toggleMenu}>Wallet</Link>

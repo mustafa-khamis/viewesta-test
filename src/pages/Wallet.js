@@ -14,6 +14,7 @@ import {
   FaExclamationTriangle,
 } from 'react-icons/fa';
 import { getWallet, topUpWallet } from '../services/walletService';
+import { submitVirtualPayForm } from '../utils/virtualPayHelper';
 import './Wallet.css';
 
 const TxIcon = ({ type }) => (
@@ -34,7 +35,7 @@ const Wallet = () => {
   const [topUpAmount, setTopUpAmount]   = useState(25);
   const [customValue, setCustomValue]   = useState('');
   const [selectedMethod, setSelectedMethod] = useState('card');
-  const [selectedProvider, setSelectedProvider] = useState('pesapal');
+  const [selectedProvider, setSelectedProvider] = useState('virtualpay');
   const [topping, setTopping]           = useState(false);
   const [topSuccess, setTopSuccess]     = useState(false);
   const [topError, setTopError]         = useState('');
@@ -46,9 +47,7 @@ const Wallet = () => {
   ];
 
   const paymentProviders = [
-    { id: 'pesapal', name: 'Pesapal' },
-    { id: 'flutterwave', name: 'Flutterwave' },
-    { id: 'stripe', name: 'Stripe' },
+    { id: 'virtualpay', name: 'VirtualPay' },
   ];
 
   const finalAmount = customValue !== '' ? Number(customValue) : topUpAmount;
@@ -94,6 +93,12 @@ const Wallet = () => {
         url.searchParams.append('return_to', returnTo);
         window.location.href = url.toString();
         return; // Don't stop topping, we are redirecting
+      }
+
+      if (result && (result.data?.payment_form || result.payment_form)) {
+        const paymentForm = result.data?.payment_form || result.payment_form;
+        submitVirtualPayForm(paymentForm);
+        return;
       }
 
       // Update local wallet data with new balance returned by backend

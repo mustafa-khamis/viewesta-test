@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fa';
 import { getSubscriptionPlans, subscribe } from '../services/subscriptionService';
 import PaymentMethodModal from '../components/PaymentMethodModal';
+import { submitVirtualPayForm } from '../utils/virtualPayHelper';
 import './Subscription.css';
 
 /* ── Static plan display helpers (icons / tags by id / interval) ── */
@@ -100,8 +101,18 @@ const Subscription = () => {
       
       // Support nested redirect_url in response.data or top-level redirect_url
       const redirectUrl = response?.data?.redirect_url || response?.redirect_url;
+      const paymentForm = response?.data?.payment_form || response?.payment_form;
 
-      if (redirectUrl) {
+      if (paymentForm) {
+        const returnUrl = returnTo && movieId 
+          ? decodeURIComponent(returnTo) 
+          : `/subscription`;
+          
+        // Store the return URL in session storage for the PaymentCallback page
+        sessionStorage.setItem('vw_payment_return_to', returnUrl);
+        submitVirtualPayForm(paymentForm);
+        return;
+      } else if (redirectUrl) {
         const returnUrl = returnTo && movieId 
           ? decodeURIComponent(returnTo) 
           : `/subscription`;

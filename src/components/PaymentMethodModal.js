@@ -42,6 +42,7 @@ const PaymentMethodModal = ({ isOpen, onClose, onContinue, amount, title = "Choo
   
   const canContinue = 
     selectedMethod === 'card' || 
+    selectedMethod === 'mobile' ||
     (selectedMethod === 'wallet' && !isWalletInsufficient && !walletLoading && !walletError);
 
   const handleContinue = () => {
@@ -126,23 +127,25 @@ const PaymentMethodModal = ({ isOpen, onClose, onContinue, amount, title = "Choo
                 </div>
                 <div className="pm-option-text">
                   <span className="pm-option-title">Credit / Debit Card</span>
-                  <span className="pm-option-desc">Secure payment via Pesapal</span>
+                  <span className="pm-option-desc">Secure payment via VirtualPay</span>
                 </div>
               </div>
             </div>
 
-            {/* Mobile Money Option (Disabled) */}
-            <div className="pm-option disabled">
+            {/* Mobile Money Option */}
+            <div 
+              className={`pm-option ${selectedMethod === 'mobile' ? 'active' : ''}`}
+              onClick={() => setSelectedMethod('mobile')}
+            >
               <div className="pm-option-info">
                 <div className="pm-option-icon">
                   <FaMobileAlt />
                 </div>
                 <div className="pm-option-text">
                   <span className="pm-option-title">Mobile Money</span>
-                  <span className="pm-option-desc">Pay with MTN, Airtel, M-Pesa</span>
+                  <span className="pm-option-desc">Secure payment via VirtualPay</span>
                 </div>
               </div>
-              <div className="pm-coming-soon">Coming Soon</div>
             </div>
           </div>
         </div>

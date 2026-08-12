@@ -702,3 +702,111 @@
     top: 60px;
   }
 }
+
+/* ─── Notification Bell ─────────────────────────────────────────────────────── */
+
+.notification-bell-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px !important;
+}
+
+.notification-bell-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--text-secondary, #aaa);
+  transition: color 0.2s;
+}
+
+.notification-bell-link:hover .notification-bell-wrap,
+.notification-bell-link.active .notification-bell-wrap {
+  color: #fff;
+}
+
+.header-notification-badge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  background: var(--accent, #e50914);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: 2px solid var(--bg-primary, #0a0a0a);
+  pointer-events: none;
+  animation: badge-pop 0.2s ease;
+}
+
+@keyframes badge-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Badge inside dropdown */
+.dropdown-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent, #e50914);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+
+/* Mobile standalone bell icon (shown between hamburger and search on mobile) */
+.mobile-notification-bell {
+  display: none;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary, #aaa);
+  font-size: 1.1rem;
+  padding: 8px;
+  transition: color 0.2s;
+  text-decoration: none;
+}
+
+.mobile-notification-bell:hover {
+  color: #fff;
+}
+
+/* Badge in mobile drawer Notifications link */
+.mobile-notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent, #e50914);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .mobile-notification-bell {
+    display: flex;
+  }
+}
+

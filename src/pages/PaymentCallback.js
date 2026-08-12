@@ -15,8 +15,8 @@ const PaymentCallback = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const orderTrackingId = params.get('OrderTrackingId') || params.get('order_tracking_id');
-    const merchantReference = params.get('OrderMerchantReference') || params.get('merchant_reference');
+    const orderTrackingId = params.get('requestID') || params.get('requestId') || params.get('OrderTrackingId') || params.get('order_tracking_id');
+    const merchantReference = params.get('merchant_reference') || params.get('OrderMerchantReference');
     
     // Fallback to session storage if return_to is not in URL (e.g. from Pesapal redirect)
     let returnUrl = params.get('return_to');
@@ -43,7 +43,7 @@ const PaymentCallback = () => {
 
     const verify = async () => {
       try {
-        const response = await verifyPayment({ 
+        await verifyPayment({ 
           order_tracking_id: orderTrackingId, 
           merchant_reference: merchantReference 
         });

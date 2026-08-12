@@ -7,6 +7,7 @@ import { loginUser } from '../utils/apiClient';
 import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword, getAvatarUploadUrl, updateUserAvatar } from '../utils/apiClient.js';
 import { getMySubscription } from '../services/subscriptionService.js';
 import axios from 'axios';
+import { registerPushNotifications, unregisterPushNotifications } from '../services/notificationService.js';
 
 const AuthContext = createContext();
 const USER_KEY = 'viewesta_user';
@@ -117,6 +118,11 @@ const login = async (email, password) => {
 
     persistUser(user);
 
+    // Register push notifications silently in background
+    registerPushNotifications().catch(err => {
+      console.warn('Push notification registration failed silently', err);
+    });
+
     return { success: true, user };
 
   } catch (err) {
@@ -155,6 +161,11 @@ const register = async (data) => {
     persistUser(user);
     console.log('Registration successful:', user);
 
+    // Register push notifications silently in background
+    registerPushNotifications().catch(err => {
+      console.warn('Push notification registration failed silently', err);
+    });
+
     return { success: true, user };
   } catch (err) {
     console.error('Registration API error:', err);
@@ -167,6 +178,9 @@ const register = async (data) => {
 
 
   const logout = () => {
+    unregisterPushNotifications().catch(err => {
+      console.warn('Failed to unregister push notifications on logout', err);
+    });
     persistUser(null);
   };
 

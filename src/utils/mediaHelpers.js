@@ -16,6 +16,19 @@ export const coerceArray = (value) => {
   return [value];
 };
 
+export const normalizeMediaUrl = (url) => {
+  if (!url) return '';
+  const strUrl = String(url).trim();
+  if (!strUrl) return '';
+  if (strUrl.startsWith('http://') || strUrl.startsWith('https://') || strUrl.startsWith('data:') || strUrl.startsWith('blob:')) {
+    return strUrl;
+  }
+  if (strUrl.startsWith('/')) {
+    return process.env.REACT_APP_API_BASE ? `${process.env.REACT_APP_API_BASE}${strUrl}` : strUrl;
+  }
+  return `https://viewesta-movies.s3.us-east-1.amazonaws.com/${strUrl}`;
+};
+
 export const normalizePricing = (pricing) => {
   if (!pricing) return { ...DEFAULT_PRICE };
   if (!Array.isArray(pricing) && typeof pricing === 'object') {
@@ -138,9 +151,10 @@ export const normalizeMovie = (input = {}) => {
     rawMovie.cover_url ||
     rawMovie.backdrop ||
     rawMovie.backdrop_url ||
+    rawMovie.backdropUrl ||
     rawMovie.hero_image ||
     '';
-  const trailerUrl = rawMovie.trailer_url || rawMovie.trailerUrl || '';
+  const trailerUrl = rawMovie.trailer || rawMovie.trailer_url || rawMovie.trailerUrl || '';
   const approvalStatus = rawMovie.approval_status || rawMovie.approvalStatus || rawMovie.status || '';
 
   // Standardize the content type
@@ -163,14 +177,20 @@ export const normalizeMovie = (input = {}) => {
     duration: durationMinutes,
     genres: genres.length ? genres : ['General'],
     poster:
-      rawMovie.poster ||
-      rawMovie.poster_url ||
-      rawMovie.cover_url ||
+      normalizeMediaUrl(
+        rawMovie.poster ||
+        rawMovie.poster_url ||
+        rawMovie.posterUrl ||
+        rawMovie.cover_url
+      ) ||
       'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450"%3E%3Crect fill="%23333" width="300" height="450"/%3E%3Ctext x="50%" y="50%" font-size="18" fill="%23999" text-anchor="middle" dominant-baseline="middle"%3ENo Poster%3C/text%3E%3C/svg%3E',
     backdrop:
-      rawMovie.backdrop ||
-      rawMovie.backdrop_url ||
-      rawMovie.hero_image ||
+      normalizeMediaUrl(
+        rawMovie.backdrop ||
+        rawMovie.backdrop_url ||
+        rawMovie.backdropUrl ||
+        rawMovie.hero_image
+      ) ||
       'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"%3E%3Crect fill="%23222" width="1200" height="600"/%3E%3Ctext x="50%" y="50%" font-size="24" fill="%23666" text-anchor="middle" dominant-baseline="middle"%3ENo Backdrop%3C/text%3E%3C/svg%3E',
     description: rawMovie.description || rawMovie.synopsis || 'No description provided.',
     director: rawMovie.director || rawMovie.directed_by || rawMovie.filmmaker || 
@@ -184,8 +204,9 @@ export const normalizeMovie = (input = {}) => {
     filmmakerId: rawMovie.filmmakerId || rawMovie.filmmaker_id || null,
     age_rating: ensureString(ageRating),
     cast_crew: castCrew,
-    cover: ensureString(cover),
-    trailer_url: ensureString(trailerUrl),
+    cover: normalizeMediaUrl(cover),
+    trailer: normalizeMediaUrl(trailerUrl),
+    trailer_url: normalizeMediaUrl(trailerUrl),
     approval_status: ensureString(approvalStatus),
     status: ensureString(approvalStatus),
     raw: rawMovie,

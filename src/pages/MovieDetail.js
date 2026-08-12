@@ -11,6 +11,7 @@ import AgeRatingBadge from '../components/AgeRatingBadge';
 import CastCrewSection from '../components/CastCrewSection';
 import MovieGallery from '../components/MovieGallery';
 import PaymentMethodModal from '../components/PaymentMethodModal';
+import { submitVirtualPayForm } from '../utils/virtualPayHelper';
 import './MovieDetail.css';
 
 const MovieDetail = () => {
@@ -245,8 +246,13 @@ const MovieDetail = () => {
         });
 
         const redirectUrl = response?.data?.redirect_url || response?.redirect_url;
+        const paymentForm = response?.data?.payment_form || response?.payment_form;
 
-        if (redirectUrl) {
+        if (paymentForm) {
+          const returnUrl = `/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`;
+          sessionStorage.setItem('vw_payment_return_to', returnUrl);
+          submitVirtualPayForm(paymentForm);
+        } else if (redirectUrl) {
           const returnUrl = `/watch/${movie.id}?q=${encodeURIComponent(selectedQuality)}`;
           sessionStorage.setItem('vw_payment_return_to', returnUrl);
           window.location.href = redirectUrl;
