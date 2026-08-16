@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { FaStar, FaCalendar, FaClock, FaArrowLeft } from 'react-icons/fa';
 import { useMovies } from '../context/MovieContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,6 @@ import './Watch.css';
 
 const Watch = () => {
   const { id } = useParams();
-  const [params] = [new URLSearchParams(window.location.search)];
   const navigate = useNavigate();
   const { getMovieById, loading: contextLoading, purchasedMovies } = useMovies();
   const { user } = useAuth();
@@ -117,7 +116,7 @@ const Watch = () => {
       active = false;
       setSourcesMap({}); // Clear sources immediately on unmount
     };
-  }, [id]);
+  }, [id, isAuthorized]);
 
   const handleRefreshSource = useCallback(() => {
     console.log('[Watch] Refreshing signed URLs due to expiration or playback error...');

@@ -113,7 +113,7 @@ const SeriesDetail = () => {
       active = false;
       setEpisodeSources({}); // Cleanup on unmount or episode change
     };
-  }, [watchEpisode?.episode?.id]);
+  }, [watchEpisode]);
 
   const handleRefreshSource = useCallback(() => {
     if (!watchEpisode) return;
@@ -127,7 +127,7 @@ const SeriesDetail = () => {
         console.error('[SeriesDetail] Failed to refresh signed URLs:', err);
       }
     })();
-  }, [watchEpisode?.episode?.id]);
+  }, [watchEpisode]);
 
   // ─── Episode navigation helpers ───────────────────────────────────────────
   const getAllEpisodes = () => {

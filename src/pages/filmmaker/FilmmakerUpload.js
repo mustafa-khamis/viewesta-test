@@ -9,7 +9,6 @@ import { MEDIA_TYPES, SHORT_FILM_THRESHOLD_MINUTES } from '../../types';
 import { useLocale } from '../../context/LocaleContext';
 import client from '../../api/client';
 import { validateUploadForm } from '../../utils/uploadValidation';
-import { submitForReview } from '../../services/approvalService';
 import uploadService from '../../services/uploadService';
 import { createMovie, addMovieVideoFile } from '../../services/movieService';
 import { createShow } from '../../services/seriesService';
@@ -195,8 +194,6 @@ const FilmmakerUpload = () => {
 
   const handleSubmit = async () => {
     // Final check
-    const result = validateUploadForm(form, form.mediaType);
-
     setSubmitting(true);
     setSubmitError('');
 
