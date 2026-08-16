@@ -180,11 +180,13 @@ export function handleNotificationClick(notification, navigate) {
  */
 const getDeviceName = () => {
   const ua = navigator.userAgent || '';
-  if (ua.includes('Chrome')) return 'Chrome Web';
-  if (ua.includes('Firefox')) return 'Firefox Web';
-  if (ua.includes('Safari')) return 'Safari Web';
-  if (ua.includes('Edge')) return 'Edge Web';
-  return 'Web Browser';
+  // Order matters: Edge must come before Chrome (Edge UA includes 'Chrome')
+  if (ua.includes('Edg/') || ua.includes('Edge/')) return 'Edge';
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Safari')) return 'Safari';
+  if (ua.includes('Opera')) return 'Opera';
+  return 'Unknown Browser';
 };
 
 /**
@@ -243,29 +245,45 @@ export async function getRegisteredDevices() {
  */
 export async function registerPushNotifications() {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    console.info('[NotificationService] Push notifications not supported in this browser.');
+    console.info('[Notifications] Push notifications not supported in this browser.');
     return { supported: false };
   }
 
-  // Don't re-request if already granted
   if (Notification.permission === 'denied') {
+    console.info('[Notifications] Permission denied — skipping registration.');
     return { supported: true, granted: false };
   }
 
   try {
-    const permission = await Notification.requestPermission();
+    // Only prompt the browser dialog if permission is still 'default';
+    // skip straight to token fetch if already 'granted'.
+    let permission = Notification.permission;
     if (permission !== 'granted') {
-      console.warn('[NotificationService] Notification permission not granted.');
+      console.info('[Notifications] Requesting notification permission...');
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission !== 'granted') {
+      console.warn('[Notifications] Notification permission not granted.');
       return { supported: true, granted: false };
     }
 
+    console.info('[Notifications] Permission granted — initialising Firebase Messaging...');
     const messaging = await initializeMessaging();
     if (!messaging) {
+      console.warn('[Notifications] Firebase Messaging unavailable in this browser.');
       return { supported: false };
     }
 
     const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.warn('[Notifications] REACT_APP_FIREBASE_VAPID_KEY is not set — cannot obtain FCM token.');
+      return { supported: true, granted: true, token: null };
+    }
+
+    console.info('[Notifications] Waiting for service worker...');
     const registration = await navigator.serviceWorker.ready;
+    console.info('[Notifications] Service worker ready — requesting FCM token...');
 
     const token = await getToken(messaging, {
       vapidKey,
@@ -273,21 +291,23 @@ export async function registerPushNotifications() {
     });
 
     if (token) {
-      console.log('[NotificationService] FCM token retrieved.');
+      console.info('[Notifications] FCM token obtained successfully.');
       const storedToken = localStorage.getItem('viewesta_fcm_token');
       if (storedToken && storedToken !== token) {
-        // Token changed — unregister old before registering new
+        // Token rotated — unregister old before registering new
+        console.info('[Notifications] FCM token changed — unregistering old token...');
         await unregisterDevice(storedToken);
         localStorage.removeItem('viewesta_fcm_token');
       }
+      console.info('[Notifications] Registering device with backend...');
       await registerDevice(token);
       return { supported: true, granted: true, token };
     } else {
-      console.warn('[NotificationService] No FCM registration token available.');
+      console.warn('[Notifications] getToken() returned empty — VAPID key may be incorrect or SW not ready.');
       return { supported: true, granted: true, token: null };
     }
   } catch (error) {
-    console.error('[NotificationService] Push registration error:', error);
+    console.error('[Notifications] Push registration error:', error?.message || error);
     return { supported: true, granted: false, error };
   }
 }
