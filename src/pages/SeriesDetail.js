@@ -129,6 +129,12 @@ const SeriesDetail = () => {
     })();
   }, [watchEpisode]);
 
+
+
+
+
+
+  
   // ─── Episode navigation helpers ───────────────────────────────────────────
   const getAllEpisodes = () => {
     if (!seriesData) return [];
