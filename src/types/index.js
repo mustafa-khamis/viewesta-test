@@ -237,4 +237,5 @@ export function isAdmin(user) {
  * @property {string} [reviewed_at]
  */
 
-export default {};
+const types = {};
+export default types;

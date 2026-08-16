@@ -8,7 +8,7 @@ import {
 import { MEDIA_TYPES, SHORT_FILM_THRESHOLD_MINUTES } from '../../types';
 import { useLocale } from '../../context/LocaleContext';
 import client from '../../api/client';
-import { validateUploadForm, validateImageAspectRatio, VALIDATION_RULES } from '../../utils/uploadValidation';
+import { validateUploadForm } from '../../utils/uploadValidation';
 import { submitForReview } from '../../services/approvalService';
 import uploadService from '../../services/uploadService';
 import { createMovie, addMovieVideoFile } from '../../services/movieService';
@@ -77,7 +77,6 @@ const FilmmakerUpload = () => {
   const [errors, setErrors] = useState({});
   const warnings = []; // TODO: populate from form validation warnings if needed
   const [submitting, setSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [submitError, setSubmitError] = useState('');
   const [success, setSuccess] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -111,42 +110,6 @@ const FilmmakerUpload = () => {
       return e;
     });
   }, []);
-
-  const handleFileSelect = async (field, file) => {
-    if (!file) {
-      setField(field + '_file', null);
-      return;
-    }
-
-    // Size validation
-    const rule = field === 'video' ? VALIDATION_RULES.video : VALIDATION_RULES[field];
-    const maxMB = rule?.maxSizeMB || 50; 
-    if (file.size > maxMB * 1024 * 1024) {
-      setErrors(prev => ({ ...prev, [field]: `File exceeds limit of ${maxMB}MB.` }));
-      return;
-    }
-
-    // Aspect Ratio validation
-    if (field === 'poster') {
-      const check = await validateImageAspectRatio(file, 2 / 3);
-      if (!check.valid) {
-        setErrors(prev => ({ ...prev, [field]: check.message }));
-        return; // Block invalid aspect ratio
-      }
-    }
-    if (field === 'cover') {
-      const check = await validateImageAspectRatio(file, 16 / 9);
-      if (!check.valid) {
-        setErrors(prev => ({ ...prev, [field]: check.message }));
-        return;
-      }
-    }
-
-    setField(field + '_file', file);
-    // Create preview URL
-    const url = URL.createObjectURL(file);
-    setField(field + '_url', url);
-  };
 
   const toggleGenre = (g) => {
     setForm((prev) => ({
@@ -231,7 +194,6 @@ const FilmmakerUpload = () => {
 
     setSubmitting(true);
     setSubmitError('');
-    setUploadProgress(0);
 
     try {
       const isDirect = form.mode === MODES.DIRECT;
@@ -242,23 +204,9 @@ const FilmmakerUpload = () => {
       }
 
       // Step 1: Upload assets sequentially using uploadService
-      let totalFiles = isDirect ? 3 : 2;
-      let uploadedFiles = 0;
-      if (form.mediaType !== MEDIA_TYPES.SERIES && isDirect && form.video_file) {
-         totalFiles++;
-      }
-
-      const updateGlobalProgress = (fileProgress) => {
-        // Average progress across all files
-        const overall = ((uploadedFiles * 100) + fileProgress) / totalFiles;
-        setUploadProgress(Math.min(overall, 99));
-      };
-
       const uploadAsset = async (file, assetType) => {
         if (!file) return null;
-        const res = await uploadService.uploadFileFlow(file, assetType, (p) => updateGlobalProgress(p));
-        uploadedFiles++;
-        return res;
+        return await uploadService.uploadFileFlow(file, assetType);
       };
 
       const posterData = await uploadAsset(form.poster_file, 'poster');
@@ -285,8 +233,7 @@ const FilmmakerUpload = () => {
         ? rawCast
         : [{ name: form.director || 'Unknown', role: 'Director' }];
 
-      // Set progress to 99% before final API call
-      setUploadProgress(99);
+      // Set progress to 99% — all assets uploaded, final API call next
 
       if (form.mediaType === MEDIA_TYPES.SERIES) {
          // Only include category_id when we have a real UUID from the backend.
@@ -380,7 +327,6 @@ const FilmmakerUpload = () => {
          }
       }
       
-      setUploadProgress(100);
       setSuccess(true);
     } catch (err) {
       console.error('Upload Error:', err);

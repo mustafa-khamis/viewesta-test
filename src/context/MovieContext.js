@@ -324,6 +324,7 @@ export const MovieProvider = ({ children }) => {
       mutateWatchlist,
       addToFavorites,
       removeFromFavorites,
+      rateMovie,
       rateContent,
       getUserRating,
       addToDownloads,
