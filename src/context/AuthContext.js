@@ -4,21 +4,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { registerUser } from '../utils/apiClient.js';
 import { loginUser } from '../utils/apiClient';
-import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword, getAvatarUploadUrl, updateUserAvatar } from '../utils/apiClient.js';
+import { getCurrentUser, updateUserProfile, changePassword as apiChangePassword } from '../utils/apiClient.js';
 import { getMySubscription } from '../services/subscriptionService.js';
 import axios from 'axios';
 import { registerPushNotifications, unregisterPushNotifications } from '../services/notificationService.js';
 
 const AuthContext = createContext();
 const USER_KEY = 'viewesta_user';
-
-const safeParse = (value) => {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
-};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

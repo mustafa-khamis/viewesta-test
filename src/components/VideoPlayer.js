@@ -156,7 +156,7 @@ const VideoPlayer = ({
 
     // Standard MP4 / WebM
     video.src = url;
-  }, [drmConfig]);
+  }, [drmConfig, onRequestRefresh]);
 
   // ─── Attach source when activeSrc changes ─────────────────────────────────
   useEffect(() => {
@@ -263,17 +263,20 @@ const VideoPlayer = ({
   }, [isPlaying]);
 
   useEffect(() => {
+    const progressSave = progressSaveRef.current;
+    const video = videoRef.current;
+
     return () => {
       clearTimeout(hideControlsTimer.current);
-      clearInterval(progressSaveRef.current);
+      clearInterval(progressSave);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.src = '';
-        videoRef.current.removeAttribute('src');
-        videoRef.current.load();
+      if (video) {
+        video.src = '';
+        video.removeAttribute('src');
+        video.load();
       }
     };
   }, []);

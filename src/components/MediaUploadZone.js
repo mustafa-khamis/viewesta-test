@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { FaCloudUploadAlt, FaCheckCircle, FaTimesCircle, FaFilm, FaImage, FaLink } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaCheckCircle, FaTimesCircle, FaFilm, FaImage } from 'react-icons/fa';
 import { formatFileSize } from '../utils/uploadValidation';
 import './MediaUploadZone.css';
 
@@ -39,8 +39,6 @@ const MediaUploadZone = ({
   name,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [mode, setMode] = useState('file'); // 'file' | 'url'
-  const [urlInput, setUrlInput] = useState(currentUrl || '');
   const [localError, setLocalError] = useState('');
   const [preview, setPreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -77,7 +75,6 @@ const MediaUploadZone = ({
 
       onFileChange(file);
       onUrlChange('');
-      setUrlInput('');
     },
     [accept, maxSizeMB, onFileChange, onUrlChange, previewType]
   );
@@ -107,26 +104,9 @@ const MediaUploadZone = ({
     if (file) validateAndSetFile(file);
   };
 
-  const handleUrlSubmit = () => {
-    if (!urlInput.trim()) {
-      setLocalError('Please enter a URL.');
-      return;
-    }
-    try {
-      new URL(urlInput.trim());
-      onUrlChange(urlInput.trim());
-      onFileChange(null);
-      setPreview(null);
-      setLocalError('');
-    } catch {
-      setLocalError('Please enter a valid URL.');
-    }
-  };
-
   const handleClear = () => {
     onFileChange(null);
     onUrlChange('');
-    setUrlInput('');
     setPreview(null);
     setLocalError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
