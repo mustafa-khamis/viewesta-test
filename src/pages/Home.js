@@ -27,11 +27,16 @@ const calculateMaxVisible = () => {
 };
 
 const Home = () => {
-  const { featuredMovies, trendingMovies, movies, newReleases, topRatedMovies, loading } = useMovies();
+  const { featuredMovies, trendingMovies, newReleases, topRatedMovies, loading } = useMovies();
   const { user } = useAuth();
   const [trendingFilter, setTrendingFilter] = useState('movies');
   const maxVisibleItems = useMemo(() => calculateMaxVisible(), []);
 
+
+
+
+
+  
   // Use trending movies for hero to allow auto-sliding between multiple items
   let heroMovies = trendingMovies.length > 0 ? trendingMovies : featuredMovies;
   if (heroMovies.length === 0) {

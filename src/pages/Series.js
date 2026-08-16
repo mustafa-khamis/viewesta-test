@@ -116,7 +116,7 @@ const Series = () => {
     }
 
     return list;
-  }, [series, genreParam, yearParam, sortParam]);
+  }, [series, searchParams, genreParam, yearParam, sortParam]);
 
   /* ── URL param helper ─────────────────────────────────────────────────────── */
   const setFilter = (key, value) => {

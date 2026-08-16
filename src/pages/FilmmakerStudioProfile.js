@@ -10,11 +10,19 @@ import { useAuth } from '../context/AuthContext';
 import { getFilmmakerMovies } from '../services/movieService';
 import {
   FaCamera, FaSave, FaTimes, FaEdit,
-  FaFilm, FaUsers, FaDollarSign, FaCheckCircle,
+  FaFilm, FaDollarSign, FaCheckCircle,
   FaUpload, FaChartLine, FaSignOutAlt,
   FaQuestionCircle, FaEnvelope,
 } from 'react-icons/fa';
 import './FilmmakerStudioProfile.css';
+
+
+
+
+
+
+
+
 
 const DEFAULT_AVATAR =
   'https://ui-avatars.com/api/?background=D06224&color=fff&size=128&name=';
@@ -70,7 +78,6 @@ export default function FilmmakerStudioProfile() {
     `${DEFAULT_AVATAR}${encodeURIComponent(displayName)}`;
 
   const totalMovies    = loadingCount ? '...' : movieCount;
-  const followersCount = user?.followersCount ?? user?.followers_count ?? 0;
   const totalEarnings  = Number(user?.earnings?.total ?? user?.total_earnings ?? 0);
   const earningsCurrency = user?.earnings?.currency ?? 'USD';
 

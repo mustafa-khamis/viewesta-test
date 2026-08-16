@@ -77,11 +77,6 @@ const Profile = () => {
     setAvatarFile(null);
   };
 
-  const handleAvatarUrlChange = (e) => {
-    setEditAvatarUrl(e.target.value);
-    setAvatarPreview(e.target.value);
-  };
-
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
