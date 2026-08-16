@@ -19,11 +19,6 @@ import './FilmmakerStudioProfile.css';
 
 
 
-
-
-
-
-
 const DEFAULT_AVATAR =
   'https://ui-avatars.com/api/?background=D06224&color=fff&size=128&name=';
 

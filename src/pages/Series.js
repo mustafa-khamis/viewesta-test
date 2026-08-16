@@ -118,6 +118,12 @@ const Series = () => {
     return list;
   }, [series, searchParams, genreParam, yearParam, sortParam]);
 
+
+
+
+
+
+  
   /* ── URL param helper ─────────────────────────────────────────────────────── */
   const setFilter = (key, value) => {
     const next = new URLSearchParams(searchParams);

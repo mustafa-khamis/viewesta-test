@@ -34,9 +34,6 @@ const Home = () => {
 
 
 
-
-
-  
   // Use trending movies for hero to allow auto-sliding between multiple items
   let heroMovies = trendingMovies.length > 0 ? trendingMovies : featuredMovies;
   if (heroMovies.length === 0) {

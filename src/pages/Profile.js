@@ -89,6 +89,11 @@ const Profile = () => {
     reader.readAsDataURL(file);
   };
 
+
+
+
+
+  
   const handleSave = async () => {
     if (!editFirstName.trim() || !editLastName.trim()) {
       setSaveError('First name and last name cannot be empty.');
