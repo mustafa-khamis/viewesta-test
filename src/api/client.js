@@ -5,9 +5,10 @@
 
 import axios from 'axios';
 
-const apiBase = process.env.REACT_APP_API_BASE ;
+const apiBase = process.env.REACT_APP_API_BASE || 'https://api.viewesta.com';
 const apiVersion = process.env.REACT_APP_API_VERSION || 'v1';
-const baseURL = `${apiBase}/api/${apiVersion}`;
+const normalizedApiBase = apiBase.trim().replace(/\/$/, '');
+const baseURL = `${normalizedApiBase}/api/${apiVersion}`;
 
 const client = axios.create({
   baseURL,
@@ -19,6 +20,15 @@ client.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  if (config.url === '/notifications/devices/register') {
+    console.info('[Notifications][FCM Audit] Registration request prepared:', {
+      url: `${baseURL}${config.url}`,
+      method: (config.method || 'get').toUpperCase(),
+      hasAuthorization: Boolean(config.headers.Authorization),
+    });
+  }
+
   return config;
 });
 

@@ -121,17 +121,20 @@ function AppRoutes() {
   // ── Register service worker once ────────────────────────────────────────────
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      const params = [
-        `apiKey=${process.env.REACT_APP_FIREBASE_API_KEY}`,
-        `projectId=${process.env.REACT_APP_FIREBASE_PROJECT_ID}`,
-        `messagingSenderId=${process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID}`,
-        `appId=${process.env.REACT_APP_FIREBASE_APP_ID}`,
-        `authDomain=${process.env.REACT_APP_FIREBASE_AUTH_DOMAIN}`,
-        `storageBucket=${process.env.REACT_APP_FIREBASE_STORAGE_BUCKET}`,
-      ].join('&');
+      const params = new URLSearchParams();
+      [
+        ['apiKey', process.env.REACT_APP_FIREBASE_API_KEY],
+        ['projectId', process.env.REACT_APP_FIREBASE_PROJECT_ID],
+        ['messagingSenderId', process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID],
+        ['appId', process.env.REACT_APP_FIREBASE_APP_ID],
+        ['authDomain', process.env.REACT_APP_FIREBASE_AUTH_DOMAIN],
+        ['storageBucket', process.env.REACT_APP_FIREBASE_STORAGE_BUCKET],
+      ].forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
 
       navigator.serviceWorker
-        .register(`/firebase-messaging-sw.js?${params}`)
+        .register(`/firebase-messaging-sw.js?${params.toString()}`)
         .catch((err) => console.warn('[App] Service worker registration failed:', err));
     }
   }, []);

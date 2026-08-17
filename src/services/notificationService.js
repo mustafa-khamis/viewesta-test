@@ -7,7 +7,7 @@
  * Backend reference: PUSH_NOTIFICATIONS_FRONTEND_QA.md
  */
 
-import client from '../api/client';
+import client, { baseURL } from '../api/client';
 import { getToken, onMessage } from 'firebase/messaging';
 import { initializeMessaging } from '../firebase/config';
 
@@ -189,21 +189,49 @@ const getDeviceName = () => {
   return 'Unknown Browser';
 };
 
+const maskToken = (token) =>
+  typeof token === 'string' && token.length > 12
+    ? `${token.slice(0, 6)}...${token.slice(-4)}`
+    : '[missing]';
+
 /**
  * Register FCM token with backend.
  * POST /notifications/devices/register
  */
 export async function registerDevice(token) {
+  const body = {
+    token,
+    deviceType: 'web',
+    deviceName: getDeviceName(),
+  };
+
+  console.info('[Notifications][FCM Audit] Registration function called:', {
+    called: true,
+    url: `${baseURL}/notifications/devices/register`,
+    method: 'POST',
+    body: {
+      token: maskToken(token),
+      deviceType: body.deviceType,
+      deviceName: body.deviceName,
+    },
+  });
+
   try {
-    await client.post('/notifications/devices/register', {
-      token,
-      deviceType: 'web',
-      deviceName: getDeviceName(),
+    const response = await client.post('/notifications/devices/register', body);
+    console.info('[Notifications][FCM Audit] Device registration response:', {
+      sent: true,
+      status: response?.status,
+      message: response?.data?.message,
+      expected201: response?.status === 201,
     });
     localStorage.setItem('viewesta_fcm_token', token);
     console.log('[NotificationService] Token registered with backend.');
   } catch (error) {
-    console.warn('[NotificationService] Failed to register token:', error?.message);
+    console.warn('[Notifications][FCM Audit] Device registration failed:', {
+      sent: true,
+      status: error?.response?.status || error?.status,
+      message: error?.response?.data?.message || error?.message,
+    });
     // Non-fatal — push registration failure should not break login
   }
 }
@@ -288,6 +316,11 @@ export async function registerPushNotifications() {
     const token = await getToken(messaging, {
       vapidKey,
       serviceWorkerRegistration: registration,
+    });
+
+    console.info('[Notifications][FCM Audit] FCM token generated:', {
+      generated: Boolean(token),
+      token: maskToken(token),
     });
 
     if (token) {

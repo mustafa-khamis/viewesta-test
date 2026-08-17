@@ -23,7 +23,7 @@ const firebaseConfig = {
   appId: urlParams.get('appId'),
 };
 
-if (firebaseConfig.apiKey) {
+if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined') {
   firebase.initializeApp(firebaseConfig);
 
   const messaging = firebase.messaging();
