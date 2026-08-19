@@ -15,21 +15,7 @@ import {
 } from '../services/notificationService';
 import './Notifications.css';
 
-const TYPE_ICONS = {
-  [NOTIFICATION_TYPES.NEW_CONTENT]: '🎬',
-  [NOTIFICATION_TYPES.CONTENT_APPROVED]: '✅',
-  [NOTIFICATION_TYPES.CONTENT_REJECTED]: '❌',
-  [NOTIFICATION_TYPES.PURCHASE_SUCCESS]: '💳',
-  [NOTIFICATION_TYPES.SUBSCRIPTION_EXPIRING]: '⏳',
-  [NOTIFICATION_TYPES.SUBSCRIPTION_RENEWED]: '🔄',
-  [NOTIFICATION_TYPES.NEW_EPISODE]: '📺',
-  [NOTIFICATION_TYPES.NEW_SEASON]: '🌟',
-  [NOTIFICATION_TYPES.FILMMAKER_EARNINGS]: '💰',
-  [NOTIFICATION_TYPES.PAYOUT_PROCESSED]: '💸',
-  [NOTIFICATION_TYPES.REVIEW_RECEIVED]: '📝',
-  [NOTIFICATION_TYPES.SYSTEM_ANNOUNCEMENT]: '📢',
-  [NOTIFICATION_TYPES.PROMOTIONAL]: '🎉',
-};
+
 
 const TYPE_LABELS = {
   [NOTIFICATION_TYPES.NEW_CONTENT]: 'New Content',
@@ -113,7 +99,12 @@ export default function Notifications() {
       const newNotifications = data.notifications;
 
       setNotifications((prev) => {
-        if (reset) return newNotifications;
+        if (reset) {
+          // Preserve locally injected background/foreground messages that aren't in the DB yet
+          const dbIds = new Set(newNotifications.map((n) => n.id));
+          const localOnly = prev.filter((n) => !dbIds.has(n.id) && String(n.id).match(/^(bg|fg)-/));
+          return [...localOnly, ...newNotifications];
+        }
         // Merge without duplicates (foreground-prepended items may already exist)
         const existingIds = new Set(prev.map((n) => n.id));
         const fresh = newNotifications.filter((n) => !existingIds.has(n.id));
@@ -353,7 +344,6 @@ export default function Notifications() {
         <div className="notifications-list">
           {filtered.map((n) => {
             const nType = n.notification_type || NOTIFICATION_TYPES.SYSTEM_ANNOUNCEMENT;
-            const icon = TYPE_ICONS[nType] || '🔔';
             const label = TYPE_LABELS[nType] || 'Notification';
             const time = formatNotificationTime(n.sent_at || n.created_at);
 
@@ -365,31 +355,27 @@ export default function Notifications() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && onItemClick(n)}
-                style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
               >
-                <div style={{ display: 'flex', flex: 1 }}>
-                  <div className="notification-icon">{icon}</div>
-                  <div className="notification-body">
-                    <div className="notification-type-label">{label}</div>
-                    <div className="notification-title">{n.title || 'New notification'}</div>
-                    {n.body && (
-                      <div className="notification-message">{n.body}</div>
-                    )}
+                <div className="notification-content">
+                  <div className="notification-header">
+                    <span className="notification-type-label">{label}</span>
+                    <span className="notification-time">{time}</span>
                   </div>
+                  <div className="notification-title">{n.title || 'New notification'}</div>
+                  {n.body && (
+                    <div className="notification-message">{n.body}</div>
+                  )}
                 </div>
-                <div
-                  className="notification-meta"
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}
-                >
-                  <span className="notification-time">{time}</span>
-                  {!n.is_read && <span className="notification-dot" />}
+                
+                <div className="notification-actions-side">
+                  {!n.is_read && <span className="notification-dot" title="Unread" />}
                   <button
                     onClick={(e) => handleDelete(e, n)}
-                    className="btn btn-ghost btn-small"
-                    style={{ padding: '2px 6px', fontSize: '12px', color: '#ff4d4f' }}
+                    className="notification-delete-btn"
                     aria-label="Delete notification"
+                    title="Delete"
                   >
-                    Delete
+                    &times;
                   </button>
                 </div>
               </div>
