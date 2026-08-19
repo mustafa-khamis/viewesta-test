@@ -48,6 +48,56 @@ import EarningsDetail from './pages/EarningsDetail';
 import { AuthProvider } from './context/AuthContext';
 import { MovieProvider } from './context/MovieContext';
 import { ThemeProvider } from './context/ThemeContext';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import './App.css';
+
+import ScrollToTop from './components/ScrollToTop';
+import ViewerLayout from './layouts/ViewerLayout';
+import FilmmakerStudioLayout from './layouts/FilmmakerStudioLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import FilmmakerRoute from './components/FilmmakerRoute';
+import RedirectFilmmakerToStudio from './components/RedirectFilmmakerToStudio';
+
+import Home from './pages/Home';
+import Movies from './pages/Movies';
+import MovieDetail from './pages/MovieDetail';
+import Series from './pages/Series';
+import SeriesDetail from './pages/SeriesDetail';
+import Watchlist from './pages/Watchlist';
+import Downloads from './pages/Downloads';
+import Subscription from './pages/Subscription';
+import Wallet from './pages/Wallet';
+import Search from './pages/Search';
+import Genre from './pages/Genre';
+import Genres from './pages/Genres';
+import Watch from './pages/Watch';
+import Profile from './pages/Profile';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import Contact from './pages/Contact';
+import Help from './pages/Help';
+import Notifications from './pages/Notifications';
+import EditProfile from './pages/EditProfile';
+import Following from './pages/Following';
+import FilmmakerPublicProfile from './pages/FilmmakerPublicProfile';
+import ShortFilms from './pages/ShortFilms';
+import AdminApproval from './pages/admin/AdminApproval';
+import PaymentCallback from './pages/PaymentCallback';
+
+import FilmmakerDashboard from './pages/filmmaker/FilmmakerDashboard';
+import FilmmakerMyMovies from './pages/filmmaker/FilmmakerMyMovies';
+import FilmmakerUpload from './pages/filmmaker/FilmmakerUpload';
+import FilmmakerEarnings from './pages/filmmaker/FilmmakerEarnings';
+import FilmmakerFollowers from './pages/filmmaker/FilmmakerFollowers';
+import FilmmakerViews from './pages/FilmmakerViews';
+import FilmmakerStudioProfile from './pages/FilmmakerStudioProfile';
+import EarningsDetail from './pages/EarningsDetail';
+
+import { AuthProvider } from './context/AuthContext';
+import { MovieProvider } from './context/MovieContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { LocaleProvider } from './context/LocaleContext';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
 import { onForegroundMessage } from './services/notificationService';
@@ -57,6 +107,42 @@ import { onForegroundMessage } from './services/notificationService';
 function ForegroundNotificationHandler() {
   const { prependNotification } = useNotification();
 
+  // Listen for BACKGROUND messages forwarded by the Service Worker
+  useEffect(() => {
+    const handleSWMessage = (event) => {
+      if (event.data && event.data.type === 'BACKGROUND_FCM') {
+        const payload = event.data.payload;
+        const title = payload.notification?.title || 'New Notification';
+        const body = payload.notification?.body || '';
+        const notificationId = payload.data?.notificationId || null;
+
+        const newNotif = {
+          id: notificationId || `bg-${Date.now()}`,
+          title,
+          body,
+          notification_type: payload.data?.type || 'system_announcement',
+          data: payload.data || {},
+          is_read: false,
+          is_sent: true,
+          created_at: new Date().toISOString(),
+          sent_at: new Date().toISOString(),
+          read_at: null,
+        };
+        prependNotification(newNotif);
+      }
+    };
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    }
+    return () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      }
+    };
+  }, [prependNotification]);
+
+  // Listen for FOREGROUND messages
   useEffect(() => {
     let unsubFn;
 

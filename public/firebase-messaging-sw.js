@@ -33,6 +33,14 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined') {
   messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
 
+    // Send the message to the React app (if open in a background tab)
+    // so it can format and add it to the Notifications page without waiting for a DB fetch.
+    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: 'BACKGROUND_FCM', payload });
+      });
+    });
+
     // If the payload has a 'notification' object, the Firebase SDK will automatically 
     // display a notification. We should not show another one to avoid duplicates.
     if (payload.notification) {
