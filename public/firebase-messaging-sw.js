@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+            /* eslint-disable no-restricted-globals */
 
 /**
  * Firebase Cloud Messaging Service Worker
@@ -33,6 +33,12 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined') {
   messaging.onBackgroundMessage((payload) => {
     console.log('[SW] Background message received:', payload);
 
+    // If the payload has a 'notification' object, the Firebase SDK will automatically 
+    // display a notification. We should not show another one to avoid duplicates.
+    if (payload.notification) {
+      return;
+    }
+
     const title = payload.notification?.title || 'New Notification';
     const body = payload.notification?.body || '';
     const actionUrl = payload.data?.action_url || null;
@@ -56,7 +62,10 @@ if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'undefined') {
   self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const actionUrl = event.notification.data?.action_url || null;
+    // Firebase's default notification handler wraps the data inside FCM_MSG
+    const fcmData = event.notification.data?.FCM_MSG?.data || event.notification.data || {};
+    const actionUrl = fcmData.action_url || null;
+
     const targetUrl = actionUrl && actionUrl.startsWith('/')
       ? self.location.origin + actionUrl
       : self.location.origin + '/notifications';
