@@ -154,6 +154,23 @@ export default function Notifications() {
     }
   }, [user, loadNotifications]);
 
+  // ─── Auto-refresh notifications on tab focus ──────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [user, loadNotifications]);
+
   // ─── Filter notifications locally for tabs ────────────────────────────────
   const filtered = activeFilter === 'all'
     ? notifications
