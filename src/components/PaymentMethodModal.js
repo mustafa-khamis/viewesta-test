@@ -127,7 +127,7 @@ const PaymentMethodModal = ({ isOpen, onClose, onContinue, amount, title = "Choo
                 </div>
                 <div className="pm-option-text">
                   <span className="pm-option-title">Credit / Debit Card</span>
-                  <span className="pm-option-desc">Secure payment via VirtualPay</span>
+                  <span className="pm-option-desc">Secure payment via Pesapal</span>
                 </div>
               </div>
             </div>
@@ -143,7 +143,7 @@ const PaymentMethodModal = ({ isOpen, onClose, onContinue, amount, title = "Choo
                 </div>
                 <div className="pm-option-text">
                   <span className="pm-option-title">Mobile Money</span>
-                  <span className="pm-option-desc">Secure payment via VirtualPay</span>
+                  <span className="pm-option-desc">Secure payment via Pesapal</span>
                 </div>
               </div>
             </div>

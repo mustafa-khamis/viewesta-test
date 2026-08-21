@@ -35,7 +35,7 @@ const Wallet = () => {
   const [topUpAmount, setTopUpAmount]   = useState(25);
   const [customValue, setCustomValue]   = useState('');
   const [selectedMethod, setSelectedMethod] = useState('card');
-  const [selectedProvider, setSelectedProvider] = useState('virtualpay');
+  const [selectedProvider, setSelectedProvider] = useState('pesapal');
   const [topping, setTopping]           = useState(false);
   const [topSuccess, setTopSuccess]     = useState(false);
   const [topError, setTopError]         = useState('');
@@ -47,7 +47,8 @@ const Wallet = () => {
   ];
 
   const paymentProviders = [
-    { id: 'virtualpay', name: 'VirtualPay' },
+    { id: 'pesapal', name: 'Pesapal' },
+    { id: 'virtualpay', name: 'VirtualPay (Coming Soon)' },
   ];
 
   const finalAmount = customValue !== '' ? Number(customValue) : topUpAmount;
@@ -101,14 +102,7 @@ const Wallet = () => {
         return;
       }
 
-      // Update local wallet data with new balance returned by backend
-      setWalletData((prev) => ({
-        ...prev,
-        balance: result?.balance ?? result?.wallet?.balance ?? (prev?.balance ?? 0) + finalAmount,
-        transactions: result?.transaction
-          ? [result.transaction, ...(prev?.transactions ?? [])]
-          : (prev?.transactions ?? []),
-      }));
+      await fetchWallet();
       setTopSuccess(true);
       setCustomValue('');
       setTimeout(() => setTopSuccess(false), 3500);

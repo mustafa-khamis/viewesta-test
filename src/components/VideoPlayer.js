@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   FaCog, FaPlay, FaPause, FaVolumeUp, FaVolumeMute,
-  FaExpand, FaCompress, FaClosedCaptioning
+  FaExpand, FaCompress, FaClosedCaptioning, FaSpinner
 } from 'react-icons/fa';
 import { MdReplay10, MdForward10, MdPictureInPicture } from 'react-icons/md';
 import './VideoPlayer.css';
@@ -387,7 +387,7 @@ const VideoPlayer = ({
         {/* Loading spinner */}
         {isLoading && !error && (
           <div className="player-loading-overlay">
-            <div className="player-spinner" />
+            <FaSpinner className="player-spinner-icon" size={48} color="#fff" />
           </div>
         )}
 

@@ -13,7 +13,7 @@ import './Subscription.css';
 /* ── Static plan display helpers (icons / tags by id / interval) ── */
 const planMeta = {
   monthly: { icon: <FaBolt />, tag: null,       popular: false },
-  yearly:  { icon: <FaGem />,  tag: 'Save 15%', popular: true  },
+  yearly:  { icon: <FaGem />,  tag: null,       popular: true  },
   premium: { icon: <FaCrown />,tag: 'Best',      popular: false },
 };
 
@@ -26,13 +26,7 @@ const trustItems = [
   { icon: <FaHeadset />,  title: 'Priority Support',    desc: 'Real humans ready to help whenever you need.' },
 ];
 
-const calculateDiscountedPrice = (price, percentage = 15) => {
-  if (price === null || price === undefined || isNaN(price)) return null;
-  const original = Number(price);
-  if (original <= 0) return original.toFixed(2);
-  const discounted = original * (1 - (percentage / 100));
-  return discounted.toFixed(2);
-};
+
 
 const Subscription = () => {
   const { user, refreshProfile } = useAuth();
@@ -80,11 +74,10 @@ const Subscription = () => {
     // Calculate final price for the modal
     const rawPrice = plan.price ?? plan.amount;
     const hasPrice = rawPrice !== null && rawPrice !== undefined && !isNaN(rawPrice) && Number(rawPrice) > 0;
-    const discountedPrice = hasPrice ? calculateDiscountedPrice(rawPrice, 15) : 0;
     
     setSelectedPlan({
       ...plan,
-      finalAmount: Number(hasPrice ? discountedPrice : (rawPrice ?? 0))
+      finalAmount: Number(hasPrice ? rawPrice : 0)
     });
     setPaymentModalOpen(true);
   };
@@ -211,7 +204,6 @@ const Subscription = () => {
 
               const rawPrice = plan.price ?? plan.amount;
               const hasPrice = rawPrice !== null && rawPrice !== undefined && !isNaN(rawPrice) && Number(rawPrice) > 0;
-              const discountedPrice = hasPrice ? calculateDiscountedPrice(rawPrice, 15) : null;
               const currencySymbol = plan.currency === 'USD' || !plan.currency ? '$' : '';
 
               return (
@@ -227,19 +219,11 @@ const Subscription = () => {
                   <div className="plan-header">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <h3 className="plan-name">{plan.name}</h3>
-                      {hasPrice && (
-                        <span className="discount-badge">15% OFF</span>
-                      )}
                     </div>
                     {tag && <span className="plan-tag">{tag}</span>}
                     <div className="plan-price">
-                      {hasPrice && (
-                        <span className="original-price" style={{ textDecoration: 'line-through', opacity: 0.6, fontSize: '1em', marginRight: '8px' }}>
-                          {currencySymbol}{Number(rawPrice).toFixed(2)}
-                        </span>
-                      )}
                       <span className="price">
-                        {currencySymbol}{hasPrice ? discountedPrice : (rawPrice ?? '—')}
+                        {currencySymbol}{hasPrice ? Number(rawPrice).toFixed(2) : '—'}
                       </span>
                       <span className="period">/{plan.interval ?? plan.period ?? 'month'}</span>
                     </div>
@@ -247,6 +231,7 @@ const Subscription = () => {
                       <div className="original-price">was ${plan.originalPrice}</div>
                     )}
                   </div>
+
 
                   {feats.length > 0 && (
                     <ul className="plan-features">

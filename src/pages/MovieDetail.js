@@ -94,28 +94,46 @@ const MovieDetail = () => {
   const getTrailerSrc = () => {
     if (!movie) return '';
     if (movie.trailer) {
-      // If a direct YouTube link was provided, normalize to embed
       try {
         const url = new URL(movie.trailer);
+        
+        // YouTube parsing
         let videoId = '';
         if (url.hostname.includes('youtu.be')) {
           videoId = url.pathname.replace('/', '');
-        } else if (url.searchParams.get('v')) {
-          videoId = url.searchParams.get('v');
+        } else if (url.hostname.includes('youtube.com')) {
+          if (url.searchParams.has('v')) {
+            videoId = url.searchParams.get('v');
+          } else if (url.pathname.startsWith('/embed/')) {
+            videoId = url.pathname.split('/embed/')[1];
+          }
         }
-        if (videoId) return { type: 'youtube', src: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` };
+        if (videoId) return { type: 'iframe', src: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0` };
+
+        // Vimeo parsing
+        if (url.hostname.includes('vimeo.com')) {
+          const vimeoId = url.pathname.replace('/', '');
+          if (vimeoId && !isNaN(vimeoId)) {
+            return { type: 'iframe', src: `https://player.vimeo.com/video/${vimeoId}?autoplay=1` };
+          }
+        }
         
-        // Check for direct video files
+        // Direct video files
         if (url.pathname.match(/\.(mp4|webm|ogg|mov)$/i)) {
           return { type: 'video', src: movie.trailer };
         }
-      } catch {}
+      } catch (err) {
+        // Ignored, proceed to fallback
+      }
       
-      // Fallback: assume embeddable URL
+      // Fallback: assume embeddable URL or video string
+      if (movie.trailer.match(/\.(mp4|webm|ogg|mov)$/i)) {
+         return { type: 'video', src: movie.trailer };
+      }
       return { type: 'iframe', src: movie.trailer };
     }
     const q = encodeURIComponent(`${movie.title} official trailer`);
-    return { type: 'youtube', src: `https://www.youtube.com/embed?listType=search&list=${q}&autoplay=1&rel=0` };
+    return { type: 'iframe', src: `https://www.youtube.com/embed?listType=search&list=${q}&autoplay=1&rel=0` };
   };
 
   // Check if movie is in watchlist

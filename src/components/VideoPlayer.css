@@ -385,3 +385,26 @@
 .watch-back {
   margin-bottom: 1rem;
 }
+
+.player-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 5;
+}
+
+.player-spinner-icon {
+  animation: spin 1s linear infinite;
+  opacity: 0.8;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -233,6 +233,13 @@ export function validateUploadForm(formData, mediaType) {
       );
       if (!hasEpisodes) {
         errors.seasons = 'Each season must have at least one episode.';
+      } else {
+        const hasInvalidDuration = formData.seasons.some((s) => 
+          s.episodes.some((ep) => !ep.duration || Number(ep.duration) < 1)
+        );
+        if (hasInvalidDuration) {
+          errors.duration = 'All episodes must have a duration of at least 1 minute.';
+        }
       }
     }
   }

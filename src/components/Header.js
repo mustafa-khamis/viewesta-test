@@ -4,11 +4,15 @@ import { FaSearch, FaUser, FaHeart, FaBars, FaTimes, FaChevronDown, FaFilm, FaDo
 import { useAuth } from '../context/AuthContext';
 import { useLocale } from '../context/LocaleContext';
 import { useNotification } from '../context/NotificationContext';
+import { searchMovies } from '../services/movieService';
 import './Header.css';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchRef = useRef(null);
   const [isMobileCountryOpen, setIsMobileCountryOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const location = useLocation();
@@ -31,6 +35,38 @@ const Header = () => {
     }
     lastScrollY.current = window.scrollY;
   }, [isWatchPage]);
+
+  // Handle Search Suggestions
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+      try {
+        const results = await searchMovies(searchQuery.trim(), 5);
+        setSuggestions(results);
+        setShowSuggestions(true);
+      } catch (err) {
+        console.error('Error fetching search suggestions', err);
+      }
+    };
+    
+    const timeoutId = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const activationOffset = 80;
@@ -107,19 +143,52 @@ const Header = () => {
         </Link>
 
         {/* Search Bar */}
-        <form className="search-form" onSubmit={handleSearch}>
+        <form className="search-form" onSubmit={handleSearch} ref={searchRef}>
           <div className="search-input-container">
             <input
               type="text"
               placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => { if (searchQuery.trim().length >= 2) setShowSuggestions(true); }}
               className="search-input"
             />
             <button type="submit" className="search-button">
               <FaSearch />
             </button>
           </div>
+          
+          {/* Search Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="search-suggestions">
+              {suggestions.map((movie) => (
+                <div 
+                  key={movie.id} 
+                  className="search-suggestion-item"
+                  onClick={() => {
+                    setShowSuggestions(false);
+                    setSearchQuery('');
+                    navigate(movie.type === 'Series' ? `/series/${movie.id}` : `/movie/${movie.id}`);
+                  }}
+                >
+                  <img src={movie.poster} alt={movie.title} className="suggestion-poster" />
+                  <div className="suggestion-info">
+                    <div className="suggestion-title">{movie.title}</div>
+                    <div className="suggestion-meta">{movie.year || ''} • {movie.type || 'Movie'}</div>
+                  </div>
+                </div>
+              ))}
+              <div 
+                className="search-suggestion-all"
+                onClick={() => {
+                  setShowSuggestions(false);
+                  handleSearch(new Event('submit'));
+                }}
+              >
+                See all results for "{searchQuery}"
+              </div>
+            </div>
+          )}
         </form>
 
         {/* Navigation */}
