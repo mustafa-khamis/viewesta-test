@@ -172,22 +172,173 @@ export function handleNotificationClick(notification, navigate) {
     navigate('/notifications');
   }
 }
+import { getToken, onMessage } from 'firebase/messaging';
+import { initializeMessaging } from '../firebase/config';
+
+// ─── Supported notification types (backend CHECK constraint) ──────────────────
+export const NOTIFICATION_TYPES = {
+  NEW_CONTENT: 'new_content',
+  CONTENT_APPROVED: 'content_approved',
+  CONTENT_REJECTED: 'content_rejected',
+  PURCHASE_SUCCESS: 'purchase_success',
+  SUBSCRIPTION_EXPIRING: 'subscription_expiring',
+  SUBSCRIPTION_RENEWED: 'subscription_renewed',
+  NEW_EPISODE: 'new_episode',
+  NEW_SEASON: 'new_season',
+  FILMMAKER_EARNINGS: 'filmmaker_earnings',
+  PAYOUT_PROCESSED: 'payout_processed',
+  REVIEW_RECEIVED: 'review_received',
+  SYSTEM_ANNOUNCEMENT: 'system_announcement',
+  PROMOTIONAL: 'promotional',
+};
+
+// ─── Helper: resolve response data ───────────────────────────────────────────
+// Backend wraps responses in { success, data: { ... } } or returns data directly.
+const resolveData = (response) =>
+  response?.data?.data ?? response?.data ?? {};
+
+// ─── Notification CRUD ────────────────────────────────────────────────────────
+
+/**
+ * Fetch paginated notifications.
+ * GET /notifications?limit=&offset=
+ * Returns { notifications: [], unreadCount: number }
+ */
+export async function getNotifications(limit = 20, offset = 0) {
+  try {
+    const response = await client.get('/notifications', { params: { limit, offset } });
+    const data = resolveData(response);
+    return {
+      notifications: Array.isArray(data.notifications) ? data.notifications : [],
+      unreadCount: typeof data.unreadCount === 'number' ? data.unreadCount : 0,
+    };
+  } catch (err) {
+    console.warn('[NotificationService] getNotifications:', err?.message);
+    throw err; // Re-throw so callers can show error state
+  }
+}
+
+/**
+ * Fetch unread notifications only.
+ * GET /notifications/unread
+ * Returns { notifications: [], count: number }
+ */
+export async function getUnreadNotifications() {
+  try {
+    const response = await client.get('/notifications/unread');
+    const data = resolveData(response);
+    return {
+      notifications: Array.isArray(data.notifications) ? data.notifications : [],
+      count: typeof data.count === 'number' ? data.count : 0,
+    };
+  } catch (err) {
+    console.warn('[NotificationService] getUnreadNotifications:', err?.message);
+    return { notifications: [], count: 0 };
+  }
+}
+
+/**
+ * Mark a single notification as read.
+ * PUT /notifications/:id/read
+ */
+export async function markNotificationRead(id) {
+  const response = await client.put(`/notifications/${id}/read`);
+  return response.data;
+}
+
+/**
+ * Mark all notifications as read.
+ * PUT /notifications/read-all
+ */
+export async function markAllRead() {
+  const response = await client.put('/notifications/read-all');
+  return response.data;
+}
+
+/**
+ * Delete a notification.
+ * DELETE /notifications/:id
+ */
+export async function deleteNotification(id) {
+  const response = await client.delete(`/notifications/${id}`);
+  return response.data;
+}
+
+// ─── Notification Preferences ─────────────────────────────────────────────────
+
+/**
+ * Fetch user notification preferences.
+ * GET /notifications/preferences
+ */
+export async function getNotificationPreferences() {
+  try {
+    const response = await client.get('/notifications/preferences');
+    return resolveData(response);
+  } catch (err) {
+    console.warn('[NotificationService] getNotificationPreferences:', err?.message);
+    throw err;
+  }
+}
+
+/**
+ * Update user notification preferences.
+ * PUT /notifications/preferences
+ * @param {Object} prefs - e.g. { promotional: false, system_announcement: true }
+ */
+export async function updateNotificationPreferences(prefs) {
+  try {
+    const response = await client.put('/notifications/preferences', prefs);
+    return resolveData(response);
+  } catch (err) {
+    console.warn('[NotificationService] updateNotificationPreferences:', err?.message);
+    throw err;
+  }
+}
+
+// ─── Deep Linking ─────────────────────────────────────────────────────────────
+
+/**
+ * Navigate using `data.action_url` from a notification.
+ * Falls back to /notifications when action_url is missing, null, or malformed.
+ *
+ * @param {Object} notification - Notification object from the API list
+ * @param {Function} navigate   - React Router navigate function
+ */
+export function handleNotificationClick(notification, navigate) {
+  if (typeof navigate !== 'function') {
+    console.warn('[NotificationService] handleNotificationClick: navigate function not provided');
+    return;
+  }
+
+  try {
+    // data.action_url comes from the backend; can also live at top-level action_url
+    const actionUrl =
+      notification?.data?.action_url ||
+      notification?.action_url ||
+      null;
+
+    if (!actionUrl || typeof actionUrl !== 'string' || actionUrl.trim() === '') {
+      navigate('/notifications');
+      return;
+    }
+
+    // Only allow relative paths (internal routes) for security
+    const trimmed = actionUrl.trim();
+    if (trimmed.startsWith('/')) {
+      navigate(trimmed);
+    } else {
+      // Unexpected format — fall back
+      console.warn('[NotificationService] Unexpected action_url format:', trimmed);
+      navigate('/notifications');
+    }
+  } catch (err) {
+    console.warn('[NotificationService] handleNotificationClick error:', err?.message);
+    navigate('/notifications');
+  }
+}
 
 // ─── Device Registration ───────────────────────────────────────────────────────
 
-/**
- * Build a human-readable device name from user agent.
- */
-const getDeviceName = () => {
-  const ua = navigator.userAgent || '';
-  // Order matters: Edge must come before Chrome (Edge UA includes 'Chrome')
-  if (ua.includes('Edg/') || ua.includes('Edge/')) return 'Edge';
-  if (ua.includes('Chrome')) return 'Chrome';
-  if (ua.includes('Firefox')) return 'Firefox';
-  if (ua.includes('Safari')) return 'Safari';
-  if (ua.includes('Opera')) return 'Opera';
-  return 'Unknown Browser';
-};
 
 const maskToken = (token) =>
   typeof token === 'string' && token.length > 12
@@ -199,10 +350,16 @@ const maskToken = (token) =>
  * POST /notifications/devices/register
  */
 export async function registerDevice(token) {
+  let device_id = localStorage.getItem('viewesta_web_device_id');
+  if (!device_id) {
+    device_id = 'web-' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('viewesta_web_device_id', device_id);
+  }
+
   const body = {
     token,
-    deviceType: 'web',
-    deviceName: getDeviceName(),
+    platform: 'web',
+    device_id,
   };
 
   console.info('[Notifications][FCM Audit] Registration function called:', {
@@ -211,8 +368,8 @@ export async function registerDevice(token) {
     method: 'POST',
     body: {
       token: maskToken(token),
-      deviceType: body.deviceType,
-      deviceName: body.deviceName,
+      platform: body.platform,
+      device_id: body.device_id,
     },
   });
 
