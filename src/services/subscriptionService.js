@@ -36,10 +36,22 @@ export async function getSubscriptionPlans() {
       else interval = `${plan.duration_days} days`;
     }
 
+    let features = plan.features || plan.points || plan.benefits || [];
+    if (typeof features === 'string') {
+      try {
+        features = JSON.parse(features);
+      } catch (e) {
+        features = features.split(',').map(s => s.trim()).filter(Boolean);
+      }
+    } else if (!Array.isArray(features)) {
+      features = [String(features)];
+    }
+
     return {
       ...plan,
       id: plan.id || plan.type,
       interval,
+      features,
     };
   });
 }

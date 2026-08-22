@@ -92,7 +92,7 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
           />
           
           {/* Trailer Video */}
-          {movie.trailer && (
+          {movie.trailer && String(movie.trailer).match(/\.(mp4|webm|ogg|mov)$/i) && (
             <video
               ref={videoRef}
               className="trailer-video"

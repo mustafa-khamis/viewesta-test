@@ -183,7 +183,11 @@ export const normalizeMovie = (input = {}) => {
         rawMovie.poster_url ||
         rawMovie.posterUrl ||
         rawMovie.cover_url ||
-        rawMovie.image
+        rawMovie.image ||
+        rawMovie.image_url ||
+        rawMovie.imageUrl ||
+        rawMovie.thumbnail ||
+        rawMovie.thumbnail_url
       ) ||
       'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="450"%3E%3Crect fill="%23333" width="300" height="450"/%3E%3Ctext x="50%" y="50%" font-size="18" fill="%23999" text-anchor="middle" dominant-baseline="middle"%3ENo Poster%3C/text%3E%3C/svg%3E',
     backdrop:

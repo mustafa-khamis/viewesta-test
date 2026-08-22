@@ -291,7 +291,7 @@ const FilmmakerUpload = () => {
            poster_url: posterData?.file_url || form.poster_url || '',
            backdrop_url: coverData?.file_url || form.cover_url || '',
            release_date: releaseDate,
-           duration_minutes: parseInt(form.duration) || 120,
+           duration_minutes: Math.max(1, parseInt(form.duration) || 120),
            language: form.language || 'English',
            country: form.country || '',
            // TODO: Ensure backend supports monetization_type in POST /movies payload
@@ -323,7 +323,7 @@ const FilmmakerUpload = () => {
              quality: '1080p',
              file_url: videoData.file_url,
              file_size: videoData.file_size,
-             duration_seconds: parseInt(form.duration) * 60 || 7200,
+             duration_seconds: Math.max(60, parseInt(form.duration) * 60 || 7200),
              s3_key: videoData.s3_key
            });
          }

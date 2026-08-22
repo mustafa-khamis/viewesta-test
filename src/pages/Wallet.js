@@ -103,9 +103,16 @@ const Wallet = () => {
       }
 
       await fetchWallet();
-      setTopSuccess(true);
+      
+      if (result && (result.status === 'pending' || result.data?.status === 'pending')) {
+        setTopError('Top-up initiated. Please complete the payment on your device.');
+        setTopSuccess(false);
+      } else {
+        setTopSuccess(true);
+        setTimeout(() => setTopSuccess(false), 3500);
+      }
+      
       setCustomValue('');
-      setTimeout(() => setTopSuccess(false), 3500);
       setTopping(false);
     } catch (err) {
       console.error('Top-up API Error:', JSON.stringify(err.response?.data, null, 2) || err.message);

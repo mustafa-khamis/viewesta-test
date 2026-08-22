@@ -16,6 +16,10 @@ function isDashUrl(url = '') {
   return url.includes('.mpd') || url.includes('dash');
 }
 
+function isEmbedUrl(url = '') {
+  return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com') || url.includes('embed');
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatTime = (seconds) => {
   if (!isFinite(seconds) || seconds < 0) return '0:00';
@@ -160,6 +164,11 @@ const VideoPlayer = ({
 
   // ─── Attach source when activeSrc changes ─────────────────────────────────
   useEffect(() => {
+    if (isEmbedUrl(activeSrc)) {
+      setIsLoading(false);
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -374,15 +383,27 @@ const VideoPlayer = ({
     >
       <div className="video-wrapper">
         {/* Prevent downloading / exposing raw URL via right-click */}
-        <video
-          ref={videoRef}
-          className="video"
-          playsInline
-          poster={poster}
-          onContextMenu={(e) => e.preventDefault()}
-          controlsList="nodownload"
-          disablePictureInPicture={false}
-        />
+        {isEmbedUrl(activeSrc) ? (
+          <iframe
+            src={activeSrc}
+            title={title}
+            className="video"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', minHeight: '360px' }}
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            className="video"
+            playsInline
+            poster={poster}
+            onContextMenu={(e) => e.preventDefault()}
+            controlsList="nodownload"
+            disablePictureInPicture={false}
+          />
+        )}
 
         {/* Loading spinner */}
         {isLoading && !error && (

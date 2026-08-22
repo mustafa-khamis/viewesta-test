@@ -10,7 +10,7 @@
 .sub-hero {
   position: relative;
   text-align: center;
-  padding: 40px 24px 32px;
+  padding: 16px 24px 32px;
   overflow: hidden;
 }
 
@@ -364,7 +364,7 @@
 
 @media (max-width: 480px) {
   .sub-hero {
-    padding: 56px 16px 40px;
+    padding: 32px 16px 24px;
   }
 
   .sub-hero-title {

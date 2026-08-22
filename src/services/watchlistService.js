@@ -21,7 +21,7 @@ export async function getWatchlist() {
       }
 
       return rawArray.map((item) => {
-        const rawMovie = item.movie ? item.movie : item;
+        const rawMovie = item.movie || item.movie_details || item.movieDetails || item;
         return normalizeMovie(rawMovie);
       });
     }
