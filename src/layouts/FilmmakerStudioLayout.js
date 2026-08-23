@@ -5,7 +5,7 @@
 import React from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useLocale } from '../context/LocaleContext';
-import { FaFilm, FaTv, FaPlus, FaDollarSign, FaUser, FaBars, FaTimes } from 'react-icons/fa';
+import { FaFilm, FaTv, FaPlus, FaDollarSign, FaUser, FaBell, FaBars, FaTimes } from 'react-icons/fa';
 import './FilmmakerStudioLayout.css';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/filmmaker-studio/movies', icon: FaTv, key: 'myStudio' },
   { path: '/filmmaker-studio/upload', icon: FaPlus, key: 'upload' },
   { path: '/filmmaker-studio/earnings', icon: FaDollarSign, key: 'earnings' },
+  { path: '/filmmaker-studio/notifications', icon: FaBell, key: 'notifications' },
   { path: '/filmmaker-studio/profile', icon: FaUser, key: 'profile' },
 ];
 

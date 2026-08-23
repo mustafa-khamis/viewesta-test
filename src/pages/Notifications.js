@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { FaBell, FaCheck, FaTrashAlt } from 'react-icons/fa';
 import { useLocale } from '../context/LocaleContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -235,14 +236,19 @@ export default function Notifications() {
       {/* Header */}
       <div className="notifications-header">
         <div className="notifications-title-row">
-          <h1>{t('notifications') || 'Notifications'}</h1>
+          <div className="notifications-heading-icon" aria-hidden="true"><FaBell /></div>
+          <div>
+            <h1>{t('notifications') || 'Notifications'}</h1>
+            <p className="notifications-subtitle">Updates about your account and Viewesta activity</p>
+          </div>
           {unreadCount > 0 && (
-            <span className="notifications-badge">{unreadCount}</span>
+            <span className="notifications-badge" aria-label={`${unreadCount} unread notifications`}>{unreadCount}</span>
           )}
         </div>
         <div className="notifications-actions">
           {unreadCount > 0 && (
             <button className="btn btn-ghost btn-small" onClick={handleMarkAllRead}>
+              <FaCheck aria-hidden="true" />
               Mark all as read
             </button>
           )}
@@ -250,6 +256,7 @@ export default function Notifications() {
             className="btn btn-ghost btn-small"
             onClick={() => loadNotifications(true)}
             disabled={loading}
+            aria-label="Refresh notifications"
           >
             Refresh
           </button>
@@ -282,12 +289,14 @@ export default function Notifications() {
       )}
 
       {/* Filter tabs */}
-      <div className="notifications-filters">
+      <div className="notifications-filters" role="tablist" aria-label="Notification filters">
         {['all', 'unread', NOTIFICATION_TYPES.SYSTEM_ANNOUNCEMENT, NOTIFICATION_TYPES.NEW_CONTENT, NOTIFICATION_TYPES.PROMOTIONAL].map((f) => (
           <button
             key={f}
             className={`filter-tab${activeFilter === f ? ' active' : ''}`}
             onClick={() => setActiveFilter(f)}
+            role="tab"
+            aria-selected={activeFilter === f}
           >
             {f === 'all'
               ? 'All'
@@ -348,7 +357,7 @@ export default function Notifications() {
             const time = formatNotificationTime(n.sent_at || n.created_at);
 
             return (
-              <div
+              <article
                 key={n.id}
                 className={`notification-item${n.is_read ? ' read' : ' unread'}`}
                 onClick={() => onItemClick(n)}
@@ -368,17 +377,17 @@ export default function Notifications() {
                 </div>
                 
                 <div className="notification-actions-side">
-                  {!n.is_read && <span className="notification-dot" title="Unread" />}
+                  {!n.is_read && <span className="notification-dot" title="Unread" aria-label="Unread" />}
                   <button
                     onClick={(e) => handleDelete(e, n)}
                     className="notification-delete-btn"
                     aria-label="Delete notification"
                     title="Delete"
                   >
-                    &times;
+                    <FaTrashAlt aria-hidden="true" />
                   </button>
                 </div>
-              </div>
+              </article>
             );
           })}
 

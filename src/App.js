@@ -282,6 +282,7 @@ function AppRoutes() {
             <Route path="movies" element={<FilmmakerMyMovies />} />
             <Route path="upload" element={<FilmmakerUpload />} />
             <Route path="earnings" element={<FilmmakerEarnings />} />
+            <Route path="notifications" element={<Notifications />} />
             <Route path="profile" element={<FilmmakerStudioProfile />} />
           </Route>
 
