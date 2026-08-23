@@ -51,12 +51,12 @@ import { ThemeProvider } from './context/ThemeContext';
 
 import { LocaleProvider } from './context/LocaleContext';
 import { NotificationProvider, useNotification } from './context/NotificationContext';
-import { onForegroundMessage } from './services/notificationService';
+import { onForegroundMessage, markNotificationRead } from './services/notificationService';
 
 // ─── Foreground Notification Handler ─────────────────────────────────────────
 // Lives inside NotificationProvider so it can call useNotification().
 function ForegroundNotificationHandler() {
-  const { prependNotification } = useNotification();
+  const { prependNotification, markReadLocally } = useNotification();
 
   // Listen for BACKGROUND messages forwarded by the Service Worker
   useEffect(() => {
@@ -127,6 +127,10 @@ function ForegroundNotificationHandler() {
             const browserNotif = new Notification(title, opts);
             browserNotif.onclick = () => {
               window.focus();
+              if (notificationId) {
+                markReadLocally(notificationId, true);
+                markNotificationRead(notificationId).catch(console.warn);
+              }
               const target = actionUrl && actionUrl.startsWith('/') ? actionUrl : '/notifications';
               window.location.href = target;
               browserNotif.close();
@@ -137,7 +141,7 @@ function ForegroundNotificationHandler() {
         }
 
         // Show in-app toast
-        setToastNotif({ title, body, actionUrl });
+        setToastNotif({ id: notificationId, title, body, actionUrl });
 
         // 2. Update in-app notification list + badge
         const newNotif = {
@@ -169,6 +173,10 @@ function ForegroundNotificationHandler() {
     <div 
       className="app-toast-notification"
       onClick={() => {
+        if (toastNotif.id) {
+          markReadLocally(toastNotif.id, true);
+          markNotificationRead(toastNotif.id).catch(console.warn);
+        }
         if (toastNotif.actionUrl) {
           window.location.href = toastNotif.actionUrl.startsWith('/') ? toastNotif.actionUrl : '/notifications';
         }
