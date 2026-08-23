@@ -11,6 +11,7 @@
   position: relative;
   text-align: center;
   padding: 16px 24px 32px;
+  height: calc(100vh - 80px);
   overflow: hidden;
 }
 
