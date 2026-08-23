@@ -165,7 +165,7 @@ function ForegroundNotificationHandler() {
     return () => {
       if (typeof unsubFn === 'function') unsubFn();
     };
-  }, [prependNotification]);
+  }, [markReadLocally, prependNotification]);
 
   if (!toastNotif) return null;
 
