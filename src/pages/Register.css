@@ -212,63 +212,7 @@
   gap: 0.5rem;
 }
 
-.register-page .divider {
-  text-align: center;
-  margin: 1.5rem 0;
-  color: var(--muted-foreground, #737373);
-  font-size: 0.8125rem;
-  position: relative;
-}
 
-.register-page .divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: var(--border, #262626);
-}
-
-.register-page .divider span {
-  background: var(--background, #0d0d0d);
-  padding: 0 1rem;
-  position: relative;
-  z-index: 1;
-}
-
-.register-page .social-login {
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-}
-
-.register-page .social-button {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border, #262626);
-  border-radius: 8px;
-  background: var(--card, #171717);
-  color: var(--foreground, #fff);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.register-page .social-button:hover:not(:disabled) {
-  background: var(--muted, #262626);
-  border-color: var(--muted-foreground, #737373);
-}
-
-.register-page .social-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .register-footer {
   text-align: center;
@@ -321,9 +265,6 @@
     padding: 1.5rem 1rem;
   }
 
-  .register-page .social-login {
-    flex-direction: column;
-  }
 
   .role-options {
     flex-direction: column;

@@ -8,24 +8,23 @@ import { normalizeMovie } from '../utils/mediaHelpers';
 export async function getWatchlist() {
   try {
     const response = await client.get('/watchlist');
-    if (response.data?.success && response.data?.data) {
-      const data = response.data.data;
-      
-      let rawArray = [];
-      if (Array.isArray(data)) {
-        rawArray = data;
-      } else if (data.movies && Array.isArray(data.movies)) {
-        rawArray = data.movies;
-      } else if (data.items && Array.isArray(data.items)) {
-        rawArray = data.items;
-      }
+    const payload = response?.data?.data ?? response?.data ?? {};
 
-      return rawArray.map((item) => {
-        const rawMovie = item.movie || item.movie_details || item.movieDetails || item;
-        return normalizeMovie(rawMovie);
-      });
+    let rawArray = [];
+    if (Array.isArray(payload)) {
+      rawArray = payload;
+    } else if (Array.isArray(payload.movies)) {
+      rawArray = payload.movies;
+    } else if (Array.isArray(payload.items)) {
+      rawArray = payload.items;
+    } else if (Array.isArray(payload.watchlist)) {
+      rawArray = payload.watchlist;
     }
-    return [];
+
+    return rawArray.map((item) => {
+      const rawMovie = item.movie || item.movie_details || item.movieDetails || item.content || item;
+      return normalizeMovie(rawMovie);
+    });
   } catch (err) {
     console.error('Failed to fetch watchlist:', err);
     throw err;

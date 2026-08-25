@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { FaSpinner } from 'react-icons/fa';
 import { useMovies } from '../context/MovieContext';
 import * as seriesService from '../services/seriesService';
 import MovieCard from '../components/MovieCard';
+import { SkeletonCard } from '../components/Skeleton';
 import './Search.css';
 
 const Search = () => {
@@ -71,7 +73,16 @@ const Search = () => {
           className="search-input-control"
         />
       </div>
-      {loading && <div className="search-loading">Loading...</div>}
+      {loading && (
+        <div className="search-loading">
+          <FaSpinner className="spin-icon" /> Loading...
+          <div className="search-results-grid" style={{ marginTop: 12 }}>
+            {Array.from({ length: 8 }).map((_, index) => (
+              <SkeletonCard key={`search-skeleton-${index}`} />
+            ))}
+          </div>
+        </div>
+      )}
       {!loading && (
         <div className="search-results-grid">
           {allResults.map((item) => (

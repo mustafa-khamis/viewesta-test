@@ -252,7 +252,6 @@ const register = async (data) => {
     loading,
     login,
     register,
-    socialLogin: async () => ({ success: false, error: 'Social login is not available yet.' }),
     logout,
     updateProfile,
     uploadAvatar,

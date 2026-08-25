@@ -271,6 +271,13 @@ const FilmmakerUpload = () => {
 
          await createShow(payload);
       } else {
+         const parsedDurationMinutes = Number.parseInt(form.duration, 10);
+         if (!Number.isFinite(parsedDurationMinutes) || parsedDurationMinutes < 1) {
+           setSubmitError('Duration must be at least 1 minute before submitting.');
+           setSubmitting(false);
+           return;
+         }
+
          // Build release_date: form gives "YYYY-MM" from <input type="month">
          const releaseDate = form.releaseDate
            ? `${form.releaseDate}-01`
@@ -291,7 +298,7 @@ const FilmmakerUpload = () => {
            poster_url: posterData?.file_url || form.poster_url || '',
            backdrop_url: coverData?.file_url || form.cover_url || '',
            release_date: releaseDate,
-           duration_minutes: Math.max(1, parseInt(form.duration) || 120),
+           duration_minutes: parsedDurationMinutes,
            language: form.language || 'English',
            country: form.country || '',
            // TODO: Ensure backend supports monetization_type in POST /movies payload
@@ -323,7 +330,7 @@ const FilmmakerUpload = () => {
              quality: '1080p',
              file_url: videoData.file_url,
              file_size: videoData.file_size,
-             duration_seconds: Math.max(60, parseInt(form.duration) * 60 || 7200),
+             duration_seconds: parsedDurationMinutes * 60,
              s3_key: videoData.s3_key
            });
          }

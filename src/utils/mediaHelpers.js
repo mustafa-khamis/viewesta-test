@@ -30,21 +30,46 @@ export const normalizeMediaUrl = (url) => {
 };
 
 export const normalizePricing = (pricing) => {
-  if (!pricing) return { ...DEFAULT_PRICE };
+  // If the backend provided no pricing data, return null so the UI knows
+  // not to show pay-per-view quality options (filmmaker hasn't configured pricing).
+  if (pricing === null || pricing === undefined) return null;
+
+  // Backend sent a plain object already keyed by quality → price
   if (!Array.isArray(pricing) && typeof pricing === 'object') {
-    return { ...DEFAULT_PRICE, ...pricing };
+    const entries = Object.entries(pricing);
+    if (entries.length === 0) return null;
+    return { ...pricing };
   }
 
-  return pricing.reduce((acc, tier) => {
-    const quality = tier?.quality || tier?.label;
-    if (!quality) return acc;
-    const priceValue = Number(tier?.price ?? tier?.amount);
-    if (!Number.isNaN(priceValue)) {
-      acc[quality] = priceValue;
-    }
-    return acc;
-  }, { ...DEFAULT_PRICE });
+  // Backend sent an array of pricing tiers: [{ quality, price }]
+  if (Array.isArray(pricing)) {
+    const result = pricing.reduce((acc, tier) => {
+      const quality = tier?.quality || tier?.label;
+      if (!quality) return acc;
+      const priceValue = Number(tier?.price ?? tier?.amount);
+      if (!Number.isNaN(priceValue)) {
+        acc[quality] = priceValue;
+      }
+      return acc;
+    }, {});
+    return Object.keys(result).length > 0 ? result : null;
+  }
+
+  return null;
 };
+
+/**
+ * Returns the list of purchasable quality keys from a normalized movie's price map.
+ * Only qualities explicitly provided by the backend are returned.
+ * Returns an empty array if the movie has no configured pay-per-view pricing.
+ * @param {object|null} priceMap - movie.price from a normalized movie
+ * @returns {string[]}
+ */
+export const getAvailableQualities = (priceMap) => {
+  if (!priceMap || typeof priceMap !== 'object') return [];
+  return Object.keys(priceMap);
+};
+
 
 const extractYear = (value) => {
   if (!value) return undefined;
@@ -182,10 +207,14 @@ export const normalizeMovie = (input = {}) => {
         rawMovie.poster ||
         rawMovie.poster_url ||
         rawMovie.posterUrl ||
+        rawMovie.poster_path ||
         rawMovie.cover_url ||
         rawMovie.image ||
         rawMovie.image_url ||
         rawMovie.imageUrl ||
+        rawMovie.image_path ||
+        rawMovie.media?.poster_url ||
+        rawMovie.media?.poster ||
         rawMovie.thumbnail ||
         rawMovie.thumbnail_url
       ) ||

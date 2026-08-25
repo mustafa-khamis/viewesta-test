@@ -210,7 +210,7 @@ const Subscription = () => {
                 <div key={plan.id} className={`plan-card ${popular ? 'popular' : ''}`}>
                   {popular && (
                     <div className="popular-badge">
-                      <FaStar /> Most Popular
+                      <FaStar className="popular-icon" /> Most Popular
                     </div>
                   )}
 

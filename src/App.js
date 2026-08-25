@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
@@ -57,6 +57,7 @@ import { onForegroundMessage, markNotificationRead } from './services/notificati
 // Lives inside NotificationProvider so it can call useNotification().
 function ForegroundNotificationHandler() {
   const { prependNotification, markReadLocally } = useNotification();
+  const seenToastIdsRef = useRef(new Set());
 
   // Listen for BACKGROUND messages forwarded by the Service Worker
   useEffect(() => {
@@ -66,6 +67,12 @@ function ForegroundNotificationHandler() {
         const title = payload.notification?.title || 'New Notification';
         const body = payload.notification?.body || '';
         const notificationId = payload.data?.notificationId || null;
+        const toastId = notificationId || `${title}:${body}`;
+
+        if (!seenToastIdsRef.current.has(toastId) && document.visibilityState === 'visible') {
+          seenToastIdsRef.current.add(toastId);
+          setToastNotif({ id: notificationId, title, body, actionUrl: payload.data?.action_url || null });
+        }
 
         const newNotif = {
           id: notificationId || `bg-${Date.now()}`,

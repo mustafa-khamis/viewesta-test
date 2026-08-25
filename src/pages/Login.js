@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaGoogle, FaFacebook, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -13,7 +13,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login, socialLogin } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -43,21 +43,7 @@ const Login = () => {
     }
   };
 
-  const handleSocialLogin = async (provider) => {
-    setLoading(true);
-    setError('');
-    try {
-      const result = await socialLogin(provider);
-      if (result.success) {
-        const isFilmmaker = (result.user?.role || result.user?.user_type || '').toLowerCase() === 'filmmaker';
-        navigate(isFilmmaker ? '/filmmaker-studio' : '/');
-      } else setError(result.error || 'Social login failed');
-    } catch (err) {
-      setError('Something went wrong');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   return (
     <div className="login-page">
@@ -142,30 +128,6 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="divider">
-            <span>Or continue with</span>
-          </div>
-
-          <div className="social-login">
-            <button
-              type="button"
-              className="social-button google"
-              onClick={() => handleSocialLogin('google')}
-              disabled={loading}
-            >
-              <FaGoogle />
-              Google
-            </button>
-            <button
-              type="button"
-              className="social-button facebook"
-              onClick={() => handleSocialLogin('facebook')}
-              disabled={loading}
-            >
-              <FaFacebook />
-              Facebook
-            </button>
-          </div>
 
           <div className="login-footer">
             <p>

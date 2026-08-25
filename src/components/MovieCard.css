@@ -45,6 +45,30 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); /* move shadow to poster */
 }
 
+.movie-card .poster-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 15, 15, 0.55);
+}
+
+.movie-card .poster-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #D06224;
+  animation: movie-card-spin 0.9s linear infinite;
+}
+
+@keyframes movie-card-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .movie-card .poster-image {
   width: 100%;
   height: 100%;
@@ -74,8 +98,8 @@
   transition: opacity 0.3s ease;
 }
 
-/* Keep cover visible on hover: do not reveal trailer video */
-.movie-card.hovered .trailer-video { opacity: 0; }
+/* Reveal trailer only when playback starts */
+.movie-card.trailer-playing .trailer-video { opacity: 1; }
 
 /* Ensure poster stays visible when hovered */
 .movie-card.hovered .poster-image { opacity: 0.6; }

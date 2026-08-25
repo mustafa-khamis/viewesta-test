@@ -9,6 +9,7 @@ import './MovieCard.css';
 const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTrailerPlaying, setIsTrailerPlaying] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const videoRef = useRef(null);
   const navigate = useNavigate();
@@ -44,10 +45,12 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
   useEffect(() => {
     if (isHovered && videoRef.current) {
       // Try to autoplay trailer on hover
-      videoRef.current.play().catch(() => {
-        // Autoplay blocked, show play button
-        setIsTrailerPlaying(false);
-      });
+      videoRef.current.play()
+        .then(() => setIsTrailerPlaying(true))
+        .catch(() => {
+          // Autoplay blocked, keep poster visible
+          setIsTrailerPlaying(false);
+        });
     } else if (!isHovered && videoRef.current) {
       videoRef.current.pause();
       setIsTrailerPlaying(false);
@@ -68,7 +71,7 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
   return (
     <Link 
       to={movie.type === 'Series' ? `/series/${movie.id}` : `/movie/${movie.id}`}
-      className={`movie-card ${isHovered ? 'hovered' : ''} ${isTrending ? 'trending' : ''}`}
+      className={`movie-card ${isHovered ? 'hovered' : ''} ${isTrailerPlaying ? 'trailer-playing' : ''} ${isTrending ? 'trending' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
@@ -76,18 +79,24 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
       <div className="movie-card-inner">
         {/* Poster Section */}
         <div className="movie-poster">
+          {isImageLoading && (
+            <div className="poster-loading" aria-label="Loading movie poster">
+              <div className="poster-loading-spinner" />
+            </div>
+          )}
+
           <img 
             src={imageError ? 'https://via.placeholder.com/200x300/333333/FFFFFF?text=No+Image' : movie.poster} 
             alt={movie.title}
             className="poster-image"
             loading="lazy"
             onError={() => {
-              console.log('Image failed to load:', movie.poster);
               setImageError(true);
+              setIsImageLoading(false);
             }}
             onLoad={() => {
-              console.log('Image loaded successfully:', movie.poster);
               setImageError(false);
+              setIsImageLoading(false);
             }}
           />
           

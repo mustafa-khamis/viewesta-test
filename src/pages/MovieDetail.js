@@ -12,6 +12,7 @@ import CastCrewSection from '../components/CastCrewSection';
 import MovieGallery from '../components/MovieGallery';
 import PaymentMethodModal from '../components/PaymentMethodModal';
 import { submitVirtualPayForm } from '../utils/virtualPayHelper';
+import { getAvailableQualities } from '../utils/mediaHelpers';
 import './MovieDetail.css';
 
 const MovieDetail = () => {
@@ -19,7 +20,7 @@ const MovieDetail = () => {
   const navigate = useNavigate();
   const { getMovieById, movies, addToWatchlist, removeFromWatchlist, watchlist, rateContent, getUserRating, addToDownloads, purchasedMovies } = useMovies();
   const { user, refreshProfile } = useAuth();
-  const [selectedQuality, setSelectedQuality] = useState('1080p');
+  const [selectedQuality, setSelectedQuality] = useState('');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
@@ -240,7 +241,9 @@ const MovieDetail = () => {
     if (monetizationType === 'subscription') {
       setSelectedQuality('');
     } else {
-      setSelectedQuality(Object.keys(movie.price || {})[0] || '1080p');
+      // Use only qualities explicitly provided by the backend
+      const firstQuality = getAvailableQualities(movie.price)[0] || '';
+      setSelectedQuality(firstQuality);
     }
 
     // For all other users, show the unlock modal (intermediate step)
@@ -638,7 +641,10 @@ const MovieDetail = () => {
                   <button
                     type="button"
                     className={`option-tab ${selectedQuality ? 'active' : ''}`}
-                    onClick={() => setSelectedQuality(Object.keys(movie.price || {})[0] || '1080p')}
+                    onClick={() => {
+                      const firstQuality = getAvailableQualities(movie.price)[0] || '';
+                      setSelectedQuality(firstQuality);
+                    }}
                   >
                     Pay-per-view
                   </button>
@@ -646,42 +652,56 @@ const MovieDetail = () => {
               </div>
 
               {selectedQuality ? (
-                <>
-                  <div className="quality-options">
-                    {Object.entries(movie.price || {}).map(([quality, price]) => (
-                      <label 
-                        key={quality} 
-                        className={`quality-option ${selectedQuality === quality ? 'selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="quality"
-                          value={quality}
-                          checked={selectedQuality === quality}
-                          onChange={(e) => setSelectedQuality(e.target.value)}
-                        />
-                        <div className="quality-info">
-                          <span className="quality-name">{quality}</span>
-                          <span className="quality-price">${price}</span>
+                (() => {
+                  const availableQualities = getAvailableQualities(movie.price);
+                  if (availableQualities.length === 0) {
+                    return (
+                      <div className="quality-options">
+                        <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '1rem 0' }}>
+                          No pricing has been configured for this movie yet. Please try again later or contact support.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <>
+                      <div className="quality-options">
+                        {availableQualities.map((quality) => (
+                          <label
+                            key={quality}
+                            className={`quality-option ${selectedQuality === quality ? 'selected' : ''}`}
+                          >
+                            <input
+                              type="radio"
+                              name="quality"
+                              value={quality}
+                              checked={selectedQuality === quality}
+                              onChange={(e) => setSelectedQuality(e.target.value)}
+                            />
+                            <div className="quality-info">
+                              <span className="quality-name">{quality}</span>
+                              <span className="quality-price">${movie.price[quality]}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="purchase-summary">
+                        <div className="summary-item">
+                          <span>Movie:</span>
+                          <span>{movie.title}</span>
                         </div>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="purchase-summary">
-                    <div className="summary-item">
-                      <span>Movie:</span>
-                      <span>{movie.title}</span>
-                    </div>
-                    <div className="summary-item">
-                      <span>Quality:</span>
-                      <span>{selectedQuality}</span>
-                    </div>
-                    <div className="summary-item total">
-                      <span>Total:</span>
-                      <span>${(movie.price || {})[selectedQuality] ?? 0}</span>
-                    </div>
-                  </div>
-                </>
+                        <div className="summary-item">
+                          <span>Quality:</span>
+                          <span>{selectedQuality}</span>
+                        </div>
+                        <div className="summary-item total">
+                          <span>Total:</span>
+                          <span>${(movie.price || {})[selectedQuality] ?? 0}</span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()
               ) : (
                 <div className="subscribe-option">
                   <p>Get unlimited access to all movies with a monthly subscription.</p>

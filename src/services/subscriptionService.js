@@ -47,6 +47,11 @@ export async function getSubscriptionPlans() {
       features = [String(features)];
     }
 
+    features = features
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean);
+    features = Array.from(new Set(features));
+
     return {
       ...plan,
       id: plan.id || plan.type,
@@ -61,7 +66,7 @@ export async function getSubscriptionPlans() {
  * @param {{ plan_id: string, payment_method?: string }} payload
  * @returns {{ subscription: object, message: string }}
  */
-export async function subscribe({ plan_id, payment_method = 'wallet', payment_provider = 'virtualpay' }) {
+export async function subscribe({ plan_id, payment_method = 'wallet', payment_provider = 'pesapal' }) {
   const { data } = await client.post('/subscriptions/subscribe', { plan_type: plan_id, payment_method, payment_provider });
   return data;
 }
