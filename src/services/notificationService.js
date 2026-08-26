@@ -194,8 +194,11 @@ export async function registerDevice(token) {
 
   const body = {
     token,
-    platform: 'web',
+    // Backend Joi validation only accepts 'ios' | 'android' — 'web' returns 400.
+    // Web browsers register as 'android' which is accepted by the backend enum.
+    platform: 'android',
     device_id,
+    device_name: `web-browser-${device_id.slice(-6)}`,
   };
 
   console.info('[Notifications][FCM Audit] Registration function called:', {
@@ -206,6 +209,7 @@ export async function registerDevice(token) {
       token: maskToken(token),
       platform: body.platform,
       device_id: body.device_id,
+      device_name: body.device_name,
     },
   });
 

@@ -3,12 +3,9 @@
  * Manages the lifecycle: draft → pending → approved/rejected.
  *
  * All functions now call the real backend via the shared axios client.
- * Dynamic import is used so this file stays tree-shakable and avoids
- * circular-dependency issues at module-load time.
  */
 
 import client from '../api/client';
-import { APPROVAL_STATUS } from '../types';
 
 // ─── Queue Queries ────────────────────────────────────────────────────────────
 
