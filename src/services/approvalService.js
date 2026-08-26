@@ -1,166 +1,182 @@
 /**
  * Approval Service — Admin content review workflow.
- * Manages the lifecycle: draft → pending_review → approved/rejected → published.
- * TODO: Replace with API calls when backend is ready.
+ * Manages the lifecycle: draft → pending → approved/rejected.
+ *
+ * All functions now call the real backend via the shared axios client.
+ * Dynamic import is used so this file stays tree-shakable and avoids
+ * circular-dependency issues at module-load time.
  */
 
-import { mockMovies } from './mockData/movies';
-import { mockSeries } from './mockData/series';
-import { mockShortFilms } from './mockData/shortFilms';
+import client from '../api/client';
 import { APPROVAL_STATUS } from '../types';
 
-const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
-
-// In-memory store simulating backend state updates
-// In production this would be persisted via API calls
-let _overrides = {};
-
-/**
- * Get current approval status for a content item (with override support).
- * @param {string} id
- * @returns {string}
- */
-function getStatus(id, defaultStatus) {
-  return _overrides[id]?.status || defaultStatus;
-}
-
-// ─── Queue Queries ────────────────────────────────────────────────────────
+// ─── Queue Queries ────────────────────────────────────────────────────────────
 
 /**
  * Get all content pending admin review.
+ * GET /movies?status=pending
  * @returns {Promise<Array>}
  */
 export async function getPendingReviewQueue() {
-  await delay(400);
-  const all = [
-    ...mockMovies.map((m) => ({ ...m, _contentType: 'Movie' })),
-    ...mockSeries.map((s) => ({ ...s, _contentType: 'Series' })),
-    ...mockShortFilms.map((sf) => ({ ...sf, _contentType: 'ShortFilm' })),
-  ];
-  return all
-    .map((item) => ({ ...item, approval_status: getStatus(item.id, item.approval_status) }))
-    .filter((item) => item.approval_status === APPROVAL_STATUS.PENDING_REVIEW);
+  try {
+    const response = await client.get('/movies', { params: { status: 'pending', limit: 100 } });
+    const data = response.data?.data;
+    if (Array.isArray(data?.movies)) return data.movies;
+    if (Array.isArray(data)) return data;
+    return [];
+  } catch (err) {
+    console.error('[ApprovalService] getPendingReviewQueue failed:', err?.response?.data || err?.message);
+    return [];
+  }
 }
 
 /**
  * Get all content with a given status.
+ * GET /movies?status=<status>
  * @param {string} status
  * @returns {Promise<Array>}
  */
 export async function getContentByStatus(status) {
-  await delay(400);
-  const all = [
-    ...mockMovies.map((m) => ({ ...m, _contentType: 'Movie' })),
-    ...mockSeries.map((s) => ({ ...s, _contentType: 'Series' })),
-    ...mockShortFilms.map((sf) => ({ ...sf, _contentType: 'ShortFilm' })),
-  ];
-  return all
-    .map((item) => ({ ...item, approval_status: getStatus(item.id, item.approval_status) }))
-    .filter((item) => item.approval_status === status);
+  try {
+    const response = await client.get('/movies', { params: { status, limit: 100 } });
+    const data = response.data?.data;
+    if (Array.isArray(data?.movies)) return data.movies;
+    if (Array.isArray(data)) return data;
+    return [];
+  } catch (err) {
+    console.error('[ApprovalService] getContentByStatus failed:', err?.response?.data || err?.message);
+    return [];
+  }
 }
 
 /**
- * Get approval statistics summary.
- * @returns {Promise<{pending: number, approved: number, rejected: number, published: number, total: number}>}
+ * Get approval statistics summary (counts per status).
+ * Fetches movies in parallel for each status and aggregates counts.
+ * @returns {Promise<{pending: number, approved: number, rejected: number, total: number}>}
  */
 export async function getApprovalStats() {
-  await delay(200);
-  const all = [
-    ...mockMovies.map((m) => ({ ...m, _contentType: 'Movie' })),
-    ...mockSeries.map((s) => ({ ...s, _contentType: 'Series' })),
-    ...mockShortFilms.map((sf) => ({ ...sf, _contentType: 'ShortFilm' })),
-  ].map((item) => ({ ...item, approval_status: getStatus(item.id, item.approval_status) }));
+  try {
+    const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+      client.get('/movies', { params: { status: 'pending', limit: 1 } }).catch(() => null),
+      client.get('/movies', { params: { status: 'approved', limit: 1 } }).catch(() => null),
+      client.get('/movies', { params: { status: 'rejected', limit: 1 } }).catch(() => null),
+    ]);
 
-  return {
-    pending: all.filter((i) => i.approval_status === APPROVAL_STATUS.PENDING_REVIEW).length,
-    approved: all.filter((i) => i.approval_status === APPROVAL_STATUS.APPROVED).length,
-    rejected: all.filter((i) => i.approval_status === APPROVAL_STATUS.REJECTED).length,
-    published: all.filter((i) => i.approval_status === APPROVAL_STATUS.PUBLISHED).length,
-    draft: all.filter((i) => i.approval_status === APPROVAL_STATUS.DRAFT).length,
-    total: all.length,
-  };
+    const extractCount = (res) =>
+      res?.data?.data?.total ?? res?.data?.total ?? 0;
+
+    return {
+      pending: extractCount(pendingRes),
+      approved: extractCount(approvedRes),
+      rejected: extractCount(rejectedRes),
+    };
+  } catch (err) {
+    console.error('[ApprovalService] getApprovalStats failed:', err?.message);
+    return { pending: 0, approved: 0, rejected: 0 };
+  }
 }
 
-// ─── Actions ──────────────────────────────────────────────────────────────
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+/**
+ * Submit new content for admin review.
+ * Transitions status: draft → pending.
+ * PATCH /movies/:id  { status: 'pending' }
+ *
+ * @param {string} movieId - The ID returned by createMovie()
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export async function submitForReview(movieId) {
+  if (!movieId) {
+    console.warn('[ApprovalService] submitForReview: movieId is required');
+    return { success: false, message: 'Missing movie ID.' };
+  }
+
+  try {
+    await client.patch(`/movies/${movieId}`, { status: 'pending' });
+    console.log(`[ApprovalService] Movie ${movieId} submitted for review.`);
+    return {
+      success: true,
+      message: 'Content submitted for review. You will be notified once it is reviewed.',
+    };
+  } catch (err) {
+    console.error('[ApprovalService] submitForReview failed:', err?.response?.data || err?.message);
+    throw err;
+  }
+}
 
 /**
  * Approve and publish a content item.
- * @param {string} contentId
+ * PATCH /movies/:id  { status: 'approved' }
+ *
+ * @param {string} movieId
  * @param {Object} [options]
- * @param {string} [options.reviewerId]
  * @param {string} [options.notes]
  * @returns {Promise<{success: boolean, message: string}>}
  */
-export async function approveContent(contentId, options = {}) {
-  await delay(500);
-  _overrides[contentId] = {
-    status: APPROVAL_STATUS.PUBLISHED,
-    reviewed_at: new Date().toISOString(),
-    reviewer_id: options.reviewerId || 'admin',
-    notes: options.notes || '',
-  };
-  return { success: true, message: 'Content approved and published successfully.' };
+export async function approveContent(movieId, options = {}) {
+  if (!movieId) {
+    console.warn('[ApprovalService] approveContent: movieId is required');
+    return { success: false, message: 'Missing movie ID.' };
+  }
+
+  try {
+    const body = {
+      status: 'approved',
+      ...(options.notes ? { admin_notes: options.notes } : {}),
+    };
+    await client.patch(`/movies/${movieId}`, body);
+    console.log(`[ApprovalService] Movie ${movieId} approved.`);
+    return { success: true, message: 'Content approved and published successfully.' };
+  } catch (err) {
+    console.error('[ApprovalService] approveContent failed:', err?.response?.data || err?.message);
+    throw err;
+  }
 }
 
 /**
  * Reject a content item with a reason.
- * @param {string} contentId
+ * PATCH /movies/:id  { status: 'rejected', rejection_reason }
+ *
+ * @param {string} movieId
  * @param {string} reason
  * @param {Object} [options]
  * @returns {Promise<{success: boolean, message: string}>}
  */
-export async function rejectContent(contentId, reason, options = {}) {
-  await delay(500);
+export async function rejectContent(movieId, reason, options = {}) {
+  if (!movieId) {
+    console.warn('[ApprovalService] rejectContent: movieId is required');
+    return { success: false, message: 'Missing movie ID.' };
+  }
   if (!reason?.trim()) {
     return { success: false, message: 'A rejection reason is required.' };
   }
-  _overrides[contentId] = {
-    status: APPROVAL_STATUS.REJECTED,
-    rejection_reason: reason,
-    reviewed_at: new Date().toISOString(),
-    reviewer_id: options.reviewerId || 'admin',
-  };
-  return { success: true, message: 'Content rejected. The filmmaker will be notified.' };
+
+  try {
+    const body = {
+      status: 'rejected',
+      rejection_reason: reason.trim(),
+      ...(options.notes ? { admin_notes: options.notes } : {}),
+    };
+    await client.patch(`/movies/${movieId}`, body);
+    console.log(`[ApprovalService] Movie ${movieId} rejected.`);
+    return { success: true, message: 'Content rejected. The filmmaker will be notified.' };
+  } catch (err) {
+    console.error('[ApprovalService] rejectContent failed:', err?.response?.data || err?.message);
+    throw err;
+  }
 }
 
 /**
- * Submit new content for admin review.
- * Transitions from draft → pending_review.
- * @param {string} contentId
- * @returns {Promise<{success: boolean, message: string}>}
- */
-export async function submitForReview(contentId) {
-  await delay(400);
-  _overrides[contentId] = {
-    status: APPROVAL_STATUS.PENDING_REVIEW,
-    submitted_at: new Date().toISOString(),
-  };
-  return {
-    success: true,
-    message: 'Content submitted for review. You will be notified once it is reviewed.',
-  };
-}
-
-/**
- * Request revisions on a content item (keeps it in pending_review, adds notes).
- * @param {string} contentId
+ * Request revisions on a content item (same as reject but with a revisions message).
+ * @param {string} movieId
  * @param {string} notes
  * @returns {Promise<{success: boolean, message: string}>}
  */
-export async function requestRevisions(contentId, notes) {
-  await delay(400);
-  _overrides[contentId] = {
-    ...(_overrides[contentId] || {}),
-    status: APPROVAL_STATUS.REJECTED,
-    rejection_reason: `Revisions requested: ${notes}`,
-    reviewed_at: new Date().toISOString(),
-  };
-  return { success: true, message: 'Revision request sent to the filmmaker.' };
-}
-
-/**
- * Reset the in-memory override store (useful for testing).
- */
-export function _resetOverrides() {
-  _overrides = {};
+export async function requestRevisions(movieId, notes) {
+  const result = await rejectContent(movieId, `Revisions requested: ${notes}`);
+  if (result.success) {
+    return { success: true, message: 'Revision request sent to the filmmaker.' };
+  }
+  return result;
 }

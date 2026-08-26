@@ -11,6 +11,7 @@ import client from '../../api/client';
 import { validateUploadForm } from '../../utils/uploadValidation';
 import uploadService from '../../services/uploadService';
 import { createMovie, addMovieVideoFile } from '../../services/movieService';
+import { submitForReview } from '../../services/approvalService';
 import { createShow } from '../../services/seriesService';
 import MediaUploadZone from '../../components/MediaUploadZone';
 import EpisodeBuilder from '../../components/EpisodeBuilder';
@@ -269,7 +270,19 @@ const FilmmakerUpload = () => {
            };
          }
 
-         await createShow(payload);
+         const createdShow = await createShow(payload);
+
+         // ── Submit series for admin review (triggers admin notification) ──────
+         const seriesId =
+           createdShow?.data?.series?.id ||
+           createdShow?.data?.show?.id ||
+           createdShow?.data?.id ||
+           createdShow?.id;
+         if (seriesId) {
+           await submitForReview(seriesId).catch((err) =>
+             console.warn('[FilmmakerUpload] submitForReview (series) failed silently:', err?.message)
+           );
+         }
       } else {
          const parsedDurationMinutes = Number.parseInt(form.duration, 10);
          if (!Number.isFinite(parsedDurationMinutes) || parsedDurationMinutes < 1) {
@@ -333,6 +346,15 @@ const FilmmakerUpload = () => {
              duration_seconds: parsedDurationMinutes * 60,
              s3_key: videoData.s3_key
            });
+         }
+
+         // ── Submit movie for admin review (triggers admin notification) ───────
+         // Non-fatal: if the PATCH fails (e.g. backend already sets status on
+         // create), we still show success to the filmmaker and log the issue.
+         if (movieId) {
+           await submitForReview(movieId).catch((err) =>
+             console.warn('[FilmmakerUpload] submitForReview failed silently:', err?.message)
+           );
          }
       }
       
