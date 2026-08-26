@@ -58,6 +58,13 @@ export default function Notifications() {
   const [error, setError] = useState(null);
   const [pushStatus, setPushStatus] = useState(null); // null | 'granted' | 'denied' | 'unsupported'
   const [activeFilter, setActiveFilter] = useState('all');
+// comment for test
+
+
+
+
+
+
 
   // ─── Check existing push permission ────────────────────────────────────────
   useEffect(() => {
