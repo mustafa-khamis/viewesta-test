@@ -198,7 +198,9 @@ export async function registerDevice(token) {
     // Web browsers register as 'android' which is accepted by the backend enum.
     platform: 'android',
     device_id,
-    device_name: `web-browser-${device_id.slice(-6)}`,
+    // NOTE: device_name is intentionally omitted — it is not in the backend Joi
+    // schema (see Postman contract: only token, platform, device_id are accepted).
+    // Sending unknown fields causes a strict-mode Joi 400 validation error.
   };
 
   console.info('[Notifications][FCM Audit] Registration function called:', {
@@ -227,7 +229,9 @@ export async function registerDevice(token) {
     console.warn('[Notifications][FCM Audit] Device registration failed:', {
       sent: true,
       status: error?.response?.status || error?.status,
-      message: error?.response?.data?.message || error?.message,
+      // Log the full backend response body so validation errors are visible
+      backendError: error?.response?.data ?? null,
+      message: error?.response?.data?.message || error?.response?.data?.error || error?.message,
     });
     // Non-fatal — push registration failure should not break login
   }
