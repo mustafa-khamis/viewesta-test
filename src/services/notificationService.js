@@ -261,6 +261,66 @@ export async function getRegisteredDevices() {
   }
 }
 
+// ─── Service Worker Registration ────────────────────────────────────────────
+
+/**
+ * Build the firebase-messaging-sw.js URL with all Firebase config values
+ * embedded as query parameters. The service worker reads these params at
+ * startup (see public/firebase-messaging-sw.js) so that we don't hardcode
+ * credentials in the publicly-served SW file.
+ *
+ * This mirrors the approach used in the admin dashboard (notifications.ts →
+ * getServiceWorkerUrl / registerNotificationServiceWorker).
+ */
+function getServiceWorkerUrl() {
+  const config = new URLSearchParams({
+    apiKey:            process.env.REACT_APP_FIREBASE_API_KEY            ?? '',
+    authDomain:        process.env.REACT_APP_FIREBASE_AUTH_DOMAIN        ?? '',
+    projectId:         process.env.REACT_APP_FIREBASE_PROJECT_ID         ?? '',
+    storageBucket:     process.env.REACT_APP_FIREBASE_STORAGE_BUCKET     ?? '',
+    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID ?? '',
+    appId:             process.env.REACT_APP_FIREBASE_APP_ID             ?? '',
+  });
+  return `/firebase-messaging-sw.js?${config.toString()}`;
+}
+
+/**
+ * Explicitly register the Firebase Cloud Messaging service worker with the
+ * Firebase config baked into its URL, then wait for it to become active.
+ *
+ * Calling this before `navigator.serviceWorker.ready` guarantees that the
+ * service worker Firebase Messaging is properly initialised — without it the
+ * SW boots without config, Firebase stays uninitialized inside the worker,
+ * and getToken() either fails or produces an invalid token that the backend
+ * rejects with a 400.
+ */
+async function registerNotificationServiceWorker() {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('[Notifications][SW] serviceWorker API not available in this browser.');
+    return null;
+  }
+
+  const swUrl = getServiceWorkerUrl();
+  console.info('[Notifications][SW] Registering service worker:', swUrl.split('?')[0], {
+    origin: window.location.origin,
+    isSecureContext: window.isSecureContext,
+  });
+
+  try {
+    const registration = await navigator.serviceWorker.register(swUrl);
+    console.info('[Notifications][SW] Service worker registered.', {
+      scope:      registration.scope,
+      installing: !!registration.installing,
+      waiting:    !!registration.waiting,
+      active:     !!registration.active,
+    });
+    return registration;
+  } catch (err) {
+    console.error('[Notifications][SW] Service worker registration failed:', err);
+    return null;
+  }
+}
+
 // ─── Push Registration ────────────────────────────────────────────────────────
 
 /**
@@ -306,8 +366,16 @@ export async function registerPushNotifications() {
       return { supported: true, granted: true, token: null };
     }
 
+    // Explicitly register the SW with Firebase config params in the URL so the
+    // service worker can initialise Firebase Messaging. Without this step the
+    // SW receives no config (reads from URL params), Firebase stays uninitialised
+    // inside the worker, getToken() returns an invalid token, and the backend
+    // rejects the device registration with a 400.
+    console.info('[Notifications] Registering notification service worker with Firebase config...');
+    await registerNotificationServiceWorker();
     console.info('[Notifications] Waiting for service worker...');
     const registration = await navigator.serviceWorker.ready;
+    console.info('[Notifications][SW] Active SW script URL:', registration.active?.scriptURL);
     console.info('[Notifications] Service worker ready — requesting FCM token...');
 
     const token = await getToken(messaging, {
@@ -359,11 +427,18 @@ export async function unregisterPushNotifications() {
  * Call on app visibility change or token-refresh events.
  */
 export async function refreshFCMToken() {
+  // Only attempt refresh if this device was previously registered.
+  const storedToken = localStorage.getItem('viewesta_fcm_token');
+  if (!storedToken) return;
+
   try {
     const messaging = await initializeMessaging();
-    if (!messaging) return;
-
     const vapidKey = process.env.REACT_APP_FIREBASE_VAPID_KEY;
+    if (!messaging || !vapidKey || !('serviceWorker' in navigator)) return;
+
+    // Re-register the SW with config params before reading the token — same
+    // reason as in registerPushNotifications: the SW needs the config in its URL.
+    await registerNotificationServiceWorker();
     const registration = await navigator.serviceWorker.ready;
 
     const currentToken = await getToken(messaging, {
@@ -373,10 +448,9 @@ export async function refreshFCMToken() {
 
     if (!currentToken) return;
 
-    const storedToken = localStorage.getItem('viewesta_fcm_token');
     if (storedToken !== currentToken) {
       console.log('[NotificationService] FCM token changed — re-registering.');
-      if (storedToken) await unregisterDevice(storedToken);
+      await unregisterDevice(storedToken);
       await registerDevice(currentToken);
     }
   } catch (err) {
