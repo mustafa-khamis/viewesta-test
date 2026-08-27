@@ -194,13 +194,11 @@ export async function registerDevice(token) {
 
   const body = {
     token,
-    // Backend Joi validation only accepts 'ios' | 'android' — 'web' returns 400.
-    // Web browsers register as 'android' which is accepted by the backend enum.
-    platform: 'android',
+    // Backend Joi schema uses camelCase 'deviceType', NOT snake_case 'platform'.
+    // Only 'ios' | 'android' are accepted; web browsers register as 'android'.
+    deviceType: 'android',
     device_id,
-    // NOTE: device_name is intentionally omitted — it is not in the backend Joi
-    // schema (see Postman contract: only token, platform, device_id are accepted).
-    // Sending unknown fields causes a strict-mode Joi 400 validation error.
+    // NOTE: device_name is intentionally omitted — not in the backend Joi schema.
   };
 
   console.info('[Notifications][FCM Audit] Registration function called:', {
@@ -209,9 +207,8 @@ export async function registerDevice(token) {
     method: 'POST',
     body: {
       token: maskToken(token),
-      platform: body.platform,
+      deviceType: body.deviceType,
       device_id: body.device_id,
-      device_name: body.device_name,
     },
   });
 
