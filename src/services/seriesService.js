@@ -173,6 +173,53 @@ export async function createShow(payload) {
     throw err;
   }
 }
+
+export async function createSeason(showId, payload) {
+  try {
+    const response = await client.post(`/shows/${showId}/seasons`, payload);
+    return response.data;
+  } catch (err) {
+    console.error('Failed to create season:', err);
+    throw err;
+  }
+}
+
+export async function createEpisode(seasonId, payload) {
+  try {
+    const response = await client.post(`/seasons/${seasonId}/episodes`, payload);
+    return response.data;
+  } catch (err) {
+    console.error('Failed to create episode:', err);
+    throw err;
+  }
+}
+
+export async function addEpisodeVideoFile(episodeId, payload, onUploadProgress) {
+  try {
+    const response = await client.post(`/episodes/${episodeId}/video-files`, payload, {
+      onUploadProgress,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (err) {
+    console.error(`Failed to add video to episode ${episodeId}:`, err);
+    throw err;
+  }
+}
+
+export async function getFilmmakerShows(params = {}) {
+  try {
+    const response = await client.get('/filmmaker/shows', { params });
+    if (response.data?.success && response.data?.data) {
+      const raw = response.data.data.shows || response.data.data || [];
+      return Array.isArray(raw) ? raw.map(normalizeSeries) : [];
+    }
+    return [];
+  } catch (err) {
+    console.error('getFilmmakerShows failed:', err);
+    throw err;
+  }
+}
 export async function rateShow(id, rating) {
   try {
     const response = await client.post(`/shows/${id}/rate`, { rating });

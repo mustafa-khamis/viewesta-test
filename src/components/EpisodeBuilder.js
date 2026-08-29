@@ -106,6 +106,7 @@ const EpisodeBuilder = ({ seasons = [], onChange, error }) => {
     title: '',
     description: '',
     duration: '',
+    video_file: null,
     video_url: '',
   });
 
@@ -235,13 +236,17 @@ const EpisodeBuilder = ({ seasons = [], onChange, error }) => {
                         </div>
                         <div className="eb-row">
                           <div className="eb-field eb-field--video">
-                            <label>Video URL</label>
+                            <label>Video File</label>
                             <input
-                              type="url"
-                              value={episode.video_url}
-                              onChange={(e) => updateEpisode(seasonIdx, episodeIdx, 'video_url', e.target.value)}
-                              placeholder="https://..."
+                              type="file"
+                              accept="video/mp4,video/webm"
+                              onChange={(e) => updateEpisode(seasonIdx, episodeIdx, 'video_file', e.target.files[0])}
                             />
+                            {episode.video_file && (
+                              <div className="eb-file-selected">
+                                Selected: {episode.video_file.name}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

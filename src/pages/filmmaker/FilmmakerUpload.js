@@ -12,7 +12,7 @@ import { validateUploadForm } from '../../utils/uploadValidation';
 import uploadService from '../../services/uploadService';
 import { createMovie, addMovieVideoFile } from '../../services/movieService';
 import { submitForReview } from '../../services/approvalService';
-import { createShow } from '../../services/seriesService';
+import { createShow, createSeason, createEpisode, addEpisodeVideoFile } from '../../services/seriesService';
 import MediaUploadZone from '../../components/MediaUploadZone';
 import EpisodeBuilder from '../../components/EpisodeBuilder';
 import AgeRatingBadge from '../../components/AgeRatingBadge';
@@ -255,7 +255,7 @@ const FilmmakerUpload = () => {
            backdrop_url: coverData?.file_url || form.cover_url || '',
            thumbnail_url: coverData?.file_url || form.cover_url || '',
            duration_minutes: 45,
-           release_year: form.releaseDate ? parseInt(form.releaseDate.split('-')[0]) : new Date().getFullYear(),
+           release_date: form.releaseDate ? `${form.releaseDate}-01` : new Date().toISOString().split('T')[0],
          };
          if (seriesCategoryId) payload.category_id = seriesCategoryId;
 
@@ -271,15 +271,49 @@ const FilmmakerUpload = () => {
          }
 
          const createdShow = await createShow(payload);
-
-         // ── Submit series for admin review (triggers admin notification) ──────
          const seriesId =
            createdShow?.data?.series?.id ||
            createdShow?.data?.show?.id ||
            createdShow?.data?.id ||
            createdShow?.id;
+
+         if (!seriesId) throw new Error("Failed to get Series ID from response.");
+
+         // ── Upload Seasons and Episodes ──────
+         for (const season of form.seasons) {
+           const seasonPayload = {
+             season_number: season.season_number,
+             title: season.title || `Season ${season.season_number}`,
+             release_date: season.year ? `${season.year}-01-01` : payload.release_date,
+           };
+           const createdSeason = await createSeason(seriesId, seasonPayload);
+           const seasonId = createdSeason?.data?.season?.id || createdSeason?.data?.id || createdSeason?.id;
+
+           if (!seasonId) throw new Error("Failed to get Season ID from response.");
+
+           for (const episode of season.episodes) {
+             const epPayload = {
+               episode_number: episode.episode_number,
+               title: episode.title || `Episode ${episode.episode_number}`,
+               description: episode.description || '',
+               duration_minutes: Number.parseInt(episode.duration, 10) || 45,
+             };
+             const createdEp = await createEpisode(seasonId, epPayload);
+             const episodeId = createdEp?.data?.episode?.id || createdEp?.data?.id || createdEp?.id;
+             
+             if (!episodeId) throw new Error("Failed to get Episode ID from response.");
+
+             if (isDirect && episode.video_file) {
+               const formData = new FormData();
+               formData.append('video', episode.video_file);
+               await addEpisodeVideoFile(episodeId, formData);
+             }
+           }
+         }
+
+         // ── Submit series for admin review (triggers admin notification) ──────
          if (seriesId) {
-           await submitForReview(seriesId).catch((err) =>
+           await submitForReview(seriesId, true).catch((err) =>
              console.warn('[FilmmakerUpload] submitForReview (series) failed silently:', err?.message)
            );
          }

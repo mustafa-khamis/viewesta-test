@@ -78,20 +78,22 @@ export async function getApprovalStats() {
 /**
  * Submit new content for admin review.
  * Transitions status: draft → pending.
- * PATCH /movies/:id  { status: 'pending' }
+ * PATCH /movies/:id  or  PATCH /shows/:id { status: 'pending' }
  *
- * @param {string} movieId - The ID returned by createMovie()
+ * @param {string} id - The ID returned by createMovie() or createShow()
+ * @param {boolean} isSeries - Whether the content is a series
  * @returns {Promise<{success: boolean, message: string}>}
  */
-export async function submitForReview(movieId) {
-  if (!movieId) {
-    console.warn('[ApprovalService] submitForReview: movieId is required');
-    return { success: false, message: 'Missing movie ID.' };
+export async function submitForReview(id, isSeries = false) {
+  if (!id) {
+    console.warn('[ApprovalService] submitForReview: id is required');
+    return { success: false, message: 'Missing content ID.' };
   }
 
   try {
-    await client.patch(`/movies/${movieId}`, { status: 'pending' });
-    console.log(`[ApprovalService] Movie ${movieId} submitted for review.`);
+    const endpoint = isSeries ? `/shows/${id}` : `/movies/${id}`;
+    await client.patch(endpoint, { status: 'pending' });
+    console.log(`[ApprovalService] Content ${id} submitted for review.`);
     return {
       success: true,
       message: 'Content submitted for review. You will be notified once it is reviewed.',

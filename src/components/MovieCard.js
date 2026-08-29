@@ -86,7 +86,7 @@ const MovieCard = ({ movie, showWatchlist = true, isTrending = false }) => {
           )}
 
           <img 
-            src={imageError ? 'https://via.placeholder.com/200x300/333333/FFFFFF?text=No+Image' : movie.poster} 
+            src={imageError ? '/assets/images/fallback.png' : (movie.poster || '/assets/images/fallback.png')} 
             alt={movie.title}
             className="poster-image"
             loading="lazy"
